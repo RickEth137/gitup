@@ -80,12 +80,13 @@ function ProjectCard({ token, onClaimFees }: ProjectCardProps) {
               />
             </div>
           </div>
-        
-        {/* Progress Details */}
-        <div className="flex items-center justify-between mt-2 text-xs text-zinc-600">
-          <span>{formatSol(marketCapSol)} SOL</span>
-          <span>{formatSol(BONDING_CURVE_GRADUATION_SOL)} SOL to graduate</span>
         </div>
+        
+          {/* Progress Details */}
+          <div className="flex items-center justify-between mt-2 text-xs text-zinc-600">
+            <span>{formatSol(marketCapSol)} SOL</span>
+            <span>{formatSol(BONDING_CURVE_GRADUATION_SOL)} SOL to graduate</span>
+          </div>
 
         {/* Stats Row */}
         <div className="grid grid-cols-3 gap-4 pt-4 mt-4 border-t border-zinc-800">
