@@ -3,6 +3,7 @@
 import { useState, useEffect } from 'react';
 import { useWallet } from '@solana/wallet-adapter-react';
 import { useConnection } from '@solana/wallet-adapter-react';
+import Link from 'next/link';
 import { 
   TokenInfo, 
   claimCreatorFees, 
@@ -22,98 +23,109 @@ function ProjectCard({ token, onClaimFees }: ProjectCardProps) {
   const marketCapSol = token.bondingCurve?.marketCapSol ?? 0;
   
   return (
-    <div className="border border-zinc-800 bg-zinc-950 p-6 hover:border-zinc-700 transition-colors">
-      {/* Header */}
-      <div className="flex items-start gap-4 mb-6">
-        {/* Token Image */}
-        <div className="w-16 h-16 bg-zinc-900 border border-zinc-800 flex-shrink-0 overflow-hidden">
-          {token.image ? (
-            <img 
-              src={token.image} 
-              alt={token.name}
-              className="w-full h-full object-cover"
-            />
-          ) : (
-            <div className="w-full h-full flex items-center justify-center text-zinc-600 text-2xl font-bold">
-              {token.symbol.charAt(0)}
-            </div>
-          )}
-        </div>
-        
-        {/* Token Info */}
-        <div className="flex-1 min-w-0">
-          <h3 className="text-white font-bold text-lg truncate">{token.name}</h3>
-          <p className="text-zinc-500 text-sm">${token.symbol}</p>
-          <p className="text-zinc-600 text-xs mt-1 line-clamp-2">{token.description}</p>
-        </div>
-
-        {/* Links */}
-        <a
-          href={getPumpFunUrl(token.mint)}
-          target="_blank"
-          rel="noopener noreferrer"
-          className="text-xs text-zinc-500 hover:text-white border border-zinc-800 px-3 py-1.5 hover:border-zinc-600 transition-colors"
-        >
-          pump.fun ↗
-        </a>
-      </div>
-
-      {/* Bonding Curve Progress */}
-      <div className="mb-6">
-        <div className="flex items-center justify-between mb-2">
-          <span className="text-zinc-400 text-sm">Bonding Curve</span>
-          <span className="text-white text-sm font-mono">
-            {isGraduated ? (
-              <span className="text-green-500">✓ Graduated</span>
+    <div className="border border-zinc-800 bg-zinc-950 hover:border-zinc-700 transition-colors">
+      {/* Clickable Header */}
+      <Link href={`/token/${token.mint}`} className="block p-6">
+        <div className="flex items-start gap-4 mb-6">
+          {/* Token Image */}
+          <div className="w-16 h-16 bg-zinc-900 border border-zinc-800 flex-shrink-0 overflow-hidden">
+            {token.image ? (
+              <img 
+                src={token.image} 
+                alt={token.name}
+                className="w-full h-full object-cover"
+              />
             ) : (
-              `${progress.toFixed(1)}%`
+              <div className="w-full h-full flex items-center justify-center text-zinc-600 text-2xl font-bold">
+                {token.symbol.charAt(0)}
+              </div>
             )}
-          </span>
-        </div>
-        
-        {/* Progress Bar */}
-        <div className="h-4 bg-zinc-900 border border-zinc-800 overflow-hidden">
-          <div 
-            className="h-full transition-all duration-500 ease-out relative"
-            style={{ width: `${Math.min(progress, 100)}%` }}
-          >
-            {/* Striped pattern */}
-            <div 
-              className={`absolute inset-0 ${isGraduated ? 'bg-green-500' : 'bg-white'}`}
-              style={{
-                backgroundImage: isGraduated 
-                  ? 'none'
-                  : 'repeating-linear-gradient(90deg, transparent, transparent 4px, rgba(0,0,0,0.3) 4px, rgba(0,0,0,0.3) 8px)',
-              }}
-            />
+          </div>
+          
+          {/* Token Info */}
+          <div className="flex-1 min-w-0">
+            <h3 className="text-white font-bold text-lg truncate hover:text-zinc-300 transition-colors">{token.name}</h3>
+            <p className="text-zinc-500 text-sm">${token.symbol}</p>
+            <p className="text-zinc-600 text-xs mt-1 line-clamp-2">{token.description}</p>
           </div>
         </div>
+
+        {/* Bonding Curve Progress */}
+        <div className="mb-6">
+          <div className="flex items-center justify-between mb-2">
+            <span className="text-zinc-400 text-sm">Bonding Curve</span>
+            <span className="text-white text-sm font-mono">
+              {isGraduated ? (
+                <span className="text-green-500">✓ Graduated</span>
+              ) : (
+                `${progress.toFixed(1)}%`
+              )}
+            </span>
+          </div>
+          
+          {/* Progress Bar */}
+          <div className="h-4 bg-zinc-900 border border-zinc-800 overflow-hidden">
+            <div 
+              className="h-full transition-all duration-500 ease-out relative"
+              style={{ width: `${Math.min(progress, 100)}%` }}
+            >
+              {/* Striped pattern */}
+              <div 
+                className={`absolute inset-0 ${isGraduated ? 'bg-green-500' : 'bg-white'}`}
+                style={{
+                  backgroundImage: isGraduated 
+                    ? 'none'
+                    : 'repeating-linear-gradient(90deg, transparent, transparent 4px, rgba(0,0,0,0.3) 4px, rgba(0,0,0,0.3) 8px)',
+                }}
+              />
+            </div>
+          </div>
         
         {/* Progress Details */}
         <div className="flex items-center justify-between mt-2 text-xs text-zinc-600">
           <span>{formatSol(marketCapSol)} SOL</span>
           <span>{formatSol(BONDING_CURVE_GRADUATION_SOL)} SOL to graduate</span>
         </div>
-      </div>
 
-      {/* Stats Row */}
-      <div className="grid grid-cols-3 gap-4 pt-4 border-t border-zinc-800">
-        <div>
-          <p className="text-zinc-500 text-xs mb-1">Market Cap</p>
-          <p className="text-white font-mono text-sm">
-            {token.usdMarketCap ? `$${(token.usdMarketCap / 1000).toFixed(1)}K` : '-'}
-          </p>
+        {/* Stats Row */}
+        <div className="grid grid-cols-3 gap-4 pt-4 mt-4 border-t border-zinc-800">
+          <div>
+            <p className="text-zinc-500 text-xs mb-1">Market Cap</p>
+            <p className="text-white font-mono text-sm">
+              {token.usdMarketCap ? `$${(token.usdMarketCap / 1000).toFixed(1)}K` : '-'}
+            </p>
+          </div>
+          <div>
+            <p className="text-zinc-500 text-xs mb-1">Replies</p>
+            <p className="text-white font-mono text-sm">{token.replyCount ?? 0}</p>
+          </div>
+          <div>
+            <p className="text-zinc-500 text-xs mb-1">Status</p>
+            <p className={`font-mono text-sm ${isGraduated ? 'text-green-500' : 'text-yellow-500'}`}>
+              {isGraduated ? 'Raydium' : 'Active'}
+            </p>
+          </div>
         </div>
-        <div>
-          <p className="text-zinc-500 text-xs mb-1">Replies</p>
-          <p className="text-white font-mono text-sm">{token.replyCount ?? 0}</p>
-        </div>
-        <div>
-          <p className="text-zinc-500 text-xs mb-1">Status</p>
-          <p className={`font-mono text-sm ${isGraduated ? 'text-green-500' : 'text-yellow-500'}`}>
-            {isGraduated ? 'Raydium' : 'Active'}
-          </p>
-        </div>
+      </Link>
+
+      {/* Quick Actions (outside the link) */}
+      <div className="flex gap-2 px-6 pb-6">
+        <a
+          href={getPumpFunUrl(token.mint)}
+          target="_blank"
+          rel="noopener noreferrer"
+          className="flex-1 text-center text-xs text-zinc-500 hover:text-white border border-zinc-800 px-3 py-2 hover:border-zinc-600 transition-colors"
+        >
+          Trade on pump.fun ↗
+        </a>
+        <a
+          href={`https://solscan.io/token/${token.mint}`}
+          target="_blank"
+          rel="noopener noreferrer"
+          className="flex-1 text-center text-xs text-zinc-500 hover:text-white border border-zinc-800 px-3 py-2 hover:border-zinc-600 transition-colors"
+        >
+          Solscan ↗
+        </a>
       </div>
     </div>
   );

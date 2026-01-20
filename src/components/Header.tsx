@@ -43,6 +43,14 @@ export function Header() {
             >
               Explore
             </Link>
+            {connected && publicKey && (
+              <Link
+                href={`/profile/${publicKey.toBase58()}`}
+                className="text-zinc-500 hover:text-white transition-colors text-sm"
+              >
+                Profile
+              </Link>
+            )}
             <Link
               href="/docs"
               className="text-zinc-500 hover:text-white transition-colors text-sm"
