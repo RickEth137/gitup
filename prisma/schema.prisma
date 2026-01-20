@@ -1,0 +1,75 @@
+// Prisma schema for git.fun
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+model User {
+  id            String    @id @default(cuid())
+  githubId      String    @unique
+  githubLogin   String
+  email         String?
+  name          String?
+  avatarUrl     String?
+  accessToken   String?   // GitHub OAuth token (encrypted in production)
+  createdAt     DateTime  @default(now())
+  accountAge    DateTime  // GitHub account creation date for spam prevention
+  
+  tokenizedRepos TokenizedRepo[]
+  
+  @@index([githubLogin])
+}
+
+model TokenizedRepo {
+  id              String   @id @default(cuid())
+  
+  // GitHub Info
+  repoId          String   @unique // GitHub repo ID - prevents double minting
+  repoName        String
+  repoFullName    String   // owner/repo format
+  repoDescription String?
+  repoUrl         String
+  repoStars       Int      @default(0)
+  repoForks       Int      @default(0)
+  
+  // Token Info
+  tokenName       String
+  tokenSymbol     String
+  tokenMint       String   @unique // Solana mint address
+  metadataUri     String   // IPFS URI for token metadata
+  logoUri         String?  // IPFS URI for logo
+  bannerUri       String?  // IPFS URI for banner
+  
+  // Pump.fun Info
+  bondingCurve    String?  // pump.fun bonding curve address
+  transactionSig  String   // Launch transaction signature
+  
+  // Relations
+  userId          String
+  user            User     @relation(fields: [userId], references: [id])
+  
+  // Timestamps
+  launchedAt      DateTime @default(now())
+  
+  @@index([repoFullName])
+  @@index([tokenMint])
+  @@index([userId])
+}
+
+model LaunchAttempt {
+  id            String   @id @default(cuid())
+  repoId        String
+  repoFullName  String
+  userId        String
+  status        String   // 'pending', 'success', 'failed'
+  errorMessage  String?
+  createdAt     DateTime @default(now())
+  
+  @@index([repoId])
+  @@index([userId])
+}
