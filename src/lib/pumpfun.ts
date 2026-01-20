@@ -1,285 +1,489 @@
 /**
- * pump.fun Integration Module
+ * pump.fun Integration via PumpPortal API
  *
- * This module provides the interface to interact with pump.fun's bonding curve program
- * on Solana for token creation.
+ * This module provides the interface to interact with pump.fun through
+ * the PumpPortal Local Transaction API for token creation, trading,
+ * and creator fee collection.
  *
- * pump.fun Program ID: 6EF8rrecthR5Dkzon8Nwu78hRvfCKubJ14M5uBEwF6P
+ * API Docs: https://pumpportal.fun
  */
 
 import {
   Connection,
   PublicKey,
   Transaction,
-  TransactionInstruction,
-  SystemProgram,
-  LAMPORTS_PER_SOL,
+  VersionedTransaction,
   Keypair,
-  ComputeBudgetProgram,
+  LAMPORTS_PER_SOL,
 } from '@solana/web3.js';
-import {
-  TOKEN_PROGRAM_ID,
-  ASSOCIATED_TOKEN_PROGRAM_ID,
-  getAssociatedTokenAddress,
-} from '@solana/spl-token';
-import * as bs58 from 'bs58';
 
-// pump.fun Program Constants
+// PumpPortal API endpoints
+const PUMPPORTAL_API = 'https://pumpportal.fun/api';
+const PUMP_FUN_IPFS = 'https://pump.fun/api/ipfs';
+const PUMP_FUN_API = 'https://frontend-api.pump.fun';
+
+// pump.fun Program ID (for reference)
 export const PUMP_FUN_PROGRAM_ID = new PublicKey(
   '6EF8rrecthR5Dkzon8Nwu78hRvfCKubJ14M5uBEwF6P'
 );
 
-export const PUMP_FUN_GLOBAL = new PublicKey(
-  '4wTV1YmiEkRvAtNtsSGPtUrqRYQMe5SKy2uB4Jjaxnjf'
-);
+// Bonding curve graduation threshold (~$69k market cap = ~85 SOL in curve)
+export const BONDING_CURVE_GRADUATION_SOL = 85;
 
-export const PUMP_FUN_FEE_RECIPIENT = new PublicKey(
-  'CebN5WGQ4jvEPvsVU4EoHEpgzq1VV7AbicfhtW4xC9iM'
-);
+// ============================================================================
+// Types
+// ============================================================================
 
-export const PUMP_FUN_EVENT_AUTHORITY = new PublicKey(
-  'Ce6TQqeHC9p8KetsN6JsjHK7UTZk7nasjjnr7XxXp9F1'
-);
-
-export const MPL_TOKEN_METADATA_PROGRAM_ID = new PublicKey(
-  'metaqbxxUerdq28cj1RbAWkYQm3ybzjb6a8bt518x1s'
-);
-
-// Discriminator for the "create" instruction
-const CREATE_DISCRIMINATOR = Buffer.from([24, 30, 200, 40, 5, 28, 7, 119]);
-
-export interface CreateTokenParams {
+export interface TokenMetadata {
   name: string;
   symbol: string;
-  metadataUri: string;
-  connection: Connection;
+  description: string;
+  image: File | Blob;
+  twitter?: string;
+  telegram?: string;
+  website?: string;
+}
+
+export interface CreateTokenParams {
+  metadata: TokenMetadata;
+  initialBuyAmount: number; // in SOL
+  slippage: number; // percentage (e.g., 10 for 10%)
   wallet: {
     publicKey: PublicKey;
-    signTransaction: (tx: Transaction) => Promise<Transaction>;
+    signTransaction: <T extends Transaction | VersionedTransaction>(tx: T) => Promise<T>;
   };
 }
 
 export interface CreateTokenResult {
-  mint: PublicKey;
+  mint: string;
   signature: string;
-  bondingCurve: PublicKey;
+  metadataUri: string;
 }
 
-/**
- * Derive the bonding curve PDA for a given mint
- */
-export function deriveBondingCurvePDA(mint: PublicKey): [PublicKey, number] {
-  return PublicKey.findProgramAddressSync(
-    [Buffer.from('bonding-curve'), mint.toBuffer()],
-    PUMP_FUN_PROGRAM_ID
-  );
-}
-
-/**
- * Derive the metadata PDA for a given mint
- */
-export function deriveMetadataPDA(mint: PublicKey): [PublicKey, number] {
-  return PublicKey.findProgramAddressSync(
-    [
-      Buffer.from('metadata'),
-      MPL_TOKEN_METADATA_PROGRAM_ID.toBuffer(),
-      mint.toBuffer(),
-    ],
-    MPL_TOKEN_METADATA_PROGRAM_ID
-  );
-}
-
-/**
- * Create the instruction data for pump.fun token creation
- */
-function createInstructionData(
-  name: string,
-  symbol: string,
-  uri: string
-): Buffer {
-  // Encode strings with length prefix (u32 LE)
-  const nameBytes = Buffer.from(name);
-  const symbolBytes = Buffer.from(symbol);
-  const uriBytes = Buffer.from(uri);
-
-  // Calculate total size
-  const totalSize =
-    8 + // discriminator
-    4 + nameBytes.length + // name with length prefix
-    4 + symbolBytes.length + // symbol with length prefix
-    4 + uriBytes.length; // uri with length prefix
-
-  const buffer = Buffer.alloc(totalSize);
-  let offset = 0;
-
-  // Write discriminator
-  CREATE_DISCRIMINATOR.copy(buffer, offset);
-  offset += 8;
-
-  // Write name
-  buffer.writeUInt32LE(nameBytes.length, offset);
-  offset += 4;
-  nameBytes.copy(buffer, offset);
-  offset += nameBytes.length;
-
-  // Write symbol
-  buffer.writeUInt32LE(symbolBytes.length, offset);
-  offset += 4;
-  symbolBytes.copy(buffer, offset);
-  offset += symbolBytes.length;
-
-  // Write uri
-  buffer.writeUInt32LE(uriBytes.length, offset);
-  offset += 4;
-  uriBytes.copy(buffer, offset);
-
-  return buffer;
-}
-
-/**
- * Create a new token on pump.fun
- *
- * This function:
- * 1. Generates a new mint keypair
- * 2. Derives all necessary PDAs
- * 3. Creates the transaction with the create instruction
- * 4. Returns the transaction for signing
- */
-export async function createPumpFunToken(
-  params: CreateTokenParams
-): Promise<CreateTokenResult> {
-  const { name, symbol, metadataUri, connection, wallet } = params;
-
-  // Generate new mint keypair
-  const mintKeypair = Keypair.generate();
-  const mint = mintKeypair.publicKey;
-
-  console.log('Creating token with mint:', mint.toBase58());
-
-  // Derive PDAs
-  const [bondingCurve] = deriveBondingCurvePDA(mint);
-  const [metadata] = deriveMetadataPDA(mint);
-
-  // Get associated token accounts
-  const associatedBondingCurve = await getAssociatedTokenAddress(
-    mint,
-    bondingCurve,
-    true
-  );
-
-  // Create instruction data
-  const instructionData = createInstructionData(name, symbol, metadataUri);
-
-  // Build the create instruction
-  const createInstruction = new TransactionInstruction({
-    programId: PUMP_FUN_PROGRAM_ID,
-    keys: [
-      { pubkey: mint, isSigner: true, isWritable: true },
-      { pubkey: wallet.publicKey, isSigner: true, isWritable: true },
-      { pubkey: bondingCurve, isSigner: false, isWritable: true },
-      { pubkey: associatedBondingCurve, isSigner: false, isWritable: true },
-      { pubkey: PUMP_FUN_GLOBAL, isSigner: false, isWritable: false },
-      { pubkey: MPL_TOKEN_METADATA_PROGRAM_ID, isSigner: false, isWritable: false },
-      { pubkey: metadata, isSigner: false, isWritable: true },
-      { pubkey: wallet.publicKey, isSigner: true, isWritable: true },
-      { pubkey: SystemProgram.programId, isSigner: false, isWritable: false },
-      { pubkey: TOKEN_PROGRAM_ID, isSigner: false, isWritable: false },
-      { pubkey: ASSOCIATED_TOKEN_PROGRAM_ID, isSigner: false, isWritable: false },
-      { pubkey: new PublicKey('SysvarRent111111111111111111111111111111111'), isSigner: false, isWritable: false },
-      { pubkey: PUMP_FUN_EVENT_AUTHORITY, isSigner: false, isWritable: false },
-      { pubkey: PUMP_FUN_PROGRAM_ID, isSigner: false, isWritable: false },
-    ],
-    data: instructionData,
-  });
-
-  // Get recent blockhash
-  const { blockhash, lastValidBlockHeight } = await connection.getLatestBlockhash();
-
-  // Create transaction
-  const transaction = new Transaction();
-
-  // Add compute budget instructions for priority
-  transaction.add(
-    ComputeBudgetProgram.setComputeUnitLimit({ units: 250_000 }),
-    ComputeBudgetProgram.setComputeUnitPrice({ microLamports: 50_000 })
-  );
-
-  // Add create instruction
-  transaction.add(createInstruction);
-
-  transaction.recentBlockhash = blockhash;
-  transaction.feePayer = wallet.publicKey;
-
-  // Partially sign with mint keypair
-  transaction.partialSign(mintKeypair);
-
-  // Get user signature
-  const signedTransaction = await wallet.signTransaction(transaction);
-
-  // Send transaction
-  const signature = await connection.sendRawTransaction(
-    signedTransaction.serialize(),
-    {
-      skipPreflight: false,
-      preflightCommitment: 'confirmed',
-    }
-  );
-
-  console.log('Transaction sent:', signature);
-
-  // Confirm transaction
-  const confirmation = await connection.confirmTransaction(
-    {
-      signature,
-      blockhash,
-      lastValidBlockHeight,
-    },
-    'confirmed'
-  );
-
-  if (confirmation.value.err) {
-    throw new Error(`Transaction failed: ${JSON.stringify(confirmation.value.err)}`);
-  }
-
-  console.log('Token created successfully!');
-  console.log('Mint:', mint.toBase58());
-  console.log('Signature:', signature);
-
-  return {
-    mint,
-    signature,
-    bondingCurve,
+export interface TradeParams {
+  mint: string;
+  action: 'buy' | 'sell';
+  amount: number;
+  denominatedInSol: boolean;
+  slippage: number;
+  wallet: {
+    publicKey: PublicKey;
+    signTransaction: <T extends Transaction | VersionedTransaction>(tx: T) => Promise<T>;
   };
 }
 
+export interface BondingCurveData {
+  mint: string;
+  virtualSolReserves: number;
+  virtualTokenReserves: number;
+  realSolReserves: number;
+  realTokenReserves: number;
+  tokenTotalSupply: number;
+  complete: boolean;
+  progress: number; // 0-100 percentage
+  marketCapSol: number;
+}
+
+export interface CreatorFeeData {
+  totalFeesEarned: number; // in SOL
+  unclaimedFees: number; // in SOL
+  claimedFees: number; // in SOL
+}
+
+export interface TokenInfo {
+  mint: string;
+  name: string;
+  symbol: string;
+  description: string;
+  image: string;
+  creator: string;
+  createdTimestamp: number;
+  bondingCurve: BondingCurveData | null;
+  usdMarketCap?: number;
+  replyCount?: number;
+}
+
+// ============================================================================
+// IPFS Metadata Upload
+// ============================================================================
+
 /**
- * Get the pump.fun trade URL for a token
+ * Upload token metadata and image to pump.fun's IPFS
  */
-export function getPumpFunUrl(mint: PublicKey | string): string {
-  const mintAddress = typeof mint === 'string' ? mint : mint.toBase58();
-  return `https://pump.fun/${mintAddress}`;
+export async function uploadMetadataToIPFS(
+  metadata: TokenMetadata
+): Promise<string> {
+  const formData = new FormData();
+  formData.append('name', metadata.name);
+  formData.append('symbol', metadata.symbol);
+  formData.append('description', metadata.description);
+  formData.append('showName', 'true');
+  
+  if (metadata.twitter) formData.append('twitter', metadata.twitter);
+  if (metadata.telegram) formData.append('telegram', metadata.telegram);
+  if (metadata.website) formData.append('website', metadata.website);
+  
+  formData.append('file', metadata.image);
+
+  const response = await fetch(PUMP_FUN_IPFS, {
+    method: 'POST',
+    body: formData,
+  });
+
+  if (!response.ok) {
+    throw new Error(`Failed to upload metadata: ${response.statusText}`);
+  }
+
+  const data = await response.json();
+  return data.metadataUri;
+}
+
+// ============================================================================
+// Token Creation
+// ============================================================================
+
+/**
+ * Create a new token on pump.fun via PumpPortal
+ */
+export async function createToken(
+  params: CreateTokenParams,
+  connection: Connection
+): Promise<CreateTokenResult> {
+  const { metadata, initialBuyAmount, slippage, wallet } = params;
+
+  // 1. Upload metadata to IPFS
+  console.log('Uploading metadata to IPFS...');
+  const metadataUri = await uploadMetadataToIPFS(metadata);
+  console.log('Metadata URI:', metadataUri);
+
+  // 2. Generate mint keypair
+  const mintKeypair = Keypair.generate();
+  console.log('Generated mint:', mintKeypair.publicKey.toBase58());
+
+  // 3. Request create transaction from PumpPortal
+  const response = await fetch(`${PUMPPORTAL_API}/trade-local`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({
+      publicKey: wallet.publicKey.toBase58(),
+      action: 'create',
+      tokenMetadata: {
+        name: metadata.name,
+        symbol: metadata.symbol,
+        uri: metadataUri,
+      },
+      mint: mintKeypair.publicKey.toBase58(),
+      denominatedInSol: 'true',
+      amount: initialBuyAmount,
+      slippage: slippage,
+      priorityFee: 0.0005,
+      pool: 'pump',
+    }),
+  });
+
+  if (!response.ok) {
+    const errorText = await response.text();
+    throw new Error(`PumpPortal API error: ${errorText}`);
+  }
+
+  // 4. Deserialize and sign transaction
+  const txData = await response.arrayBuffer();
+  const tx = VersionedTransaction.deserialize(new Uint8Array(txData));
+  
+  // Sign with mint keypair first
+  tx.sign([mintKeypair]);
+  
+  // Then sign with wallet
+  const signedTx = await wallet.signTransaction(tx);
+
+  // 5. Send transaction
+  const signature = await connection.sendRawTransaction(signedTx.serialize(), {
+    skipPreflight: false,
+    preflightCommitment: 'confirmed',
+  });
+
+  console.log('Transaction sent:', signature);
+
+  // 6. Confirm transaction
+  const latestBlockhash = await connection.getLatestBlockhash();
+  await connection.confirmTransaction({
+    signature,
+    ...latestBlockhash,
+  }, 'confirmed');
+
+  console.log('Token created successfully!');
+
+  return {
+    mint: mintKeypair.publicKey.toBase58(),
+    signature,
+    metadataUri,
+  };
+}
+
+// ============================================================================
+// Trading (Buy/Sell)
+// ============================================================================
+
+/**
+ * Buy or sell tokens on pump.fun via PumpPortal
+ */
+export async function trade(
+  params: TradeParams,
+  connection: Connection
+): Promise<string> {
+  const { mint, action, amount, denominatedInSol, slippage, wallet } = params;
+
+  const response = await fetch(`${PUMPPORTAL_API}/trade-local`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({
+      publicKey: wallet.publicKey.toBase58(),
+      action: action,
+      mint: mint,
+      amount: amount,
+      denominatedInSol: denominatedInSol ? 'true' : 'false',
+      slippage: slippage,
+      priorityFee: 0.0005,
+      pool: 'pump',
+    }),
+  });
+
+  if (!response.ok) {
+    const errorText = await response.text();
+    throw new Error(`Trade failed: ${errorText}`);
+  }
+
+  const txData = await response.arrayBuffer();
+  const tx = VersionedTransaction.deserialize(new Uint8Array(txData));
+  
+  const signedTx = await wallet.signTransaction(tx);
+
+  const signature = await connection.sendRawTransaction(signedTx.serialize(), {
+    skipPreflight: false,
+    preflightCommitment: 'confirmed',
+  });
+
+  const latestBlockhash = await connection.getLatestBlockhash();
+  await connection.confirmTransaction({
+    signature,
+    ...latestBlockhash,
+  }, 'confirmed');
+
+  return signature;
+}
+
+// ============================================================================
+// Creator Fee Collection
+// ============================================================================
+
+/**
+ * Claim all creator fees from pump.fun
+ * Note: pump.fun claims all fees at once, no need to specify token
+ */
+export async function claimCreatorFees(
+  wallet: {
+    publicKey: PublicKey;
+    signTransaction: <T extends Transaction | VersionedTransaction>(tx: T) => Promise<T>;
+  },
+  connection: Connection
+): Promise<string> {
+  const response = await fetch(`${PUMPPORTAL_API}/trade-local`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({
+      publicKey: wallet.publicKey.toBase58(),
+      action: 'collectCreatorFee',
+      priorityFee: 0.000001,
+    }),
+  });
+
+  if (!response.ok) {
+    const errorText = await response.text();
+    throw new Error(`Failed to claim fees: ${errorText}`);
+  }
+
+  const txData = await response.arrayBuffer();
+  const tx = VersionedTransaction.deserialize(new Uint8Array(txData));
+  
+  const signedTx = await wallet.signTransaction(tx);
+
+  const signature = await connection.sendRawTransaction(signedTx.serialize(), {
+    skipPreflight: false,
+    preflightCommitment: 'confirmed',
+  });
+
+  const latestBlockhash = await connection.getLatestBlockhash();
+  await connection.confirmTransaction({
+    signature,
+    ...latestBlockhash,
+  }, 'confirmed');
+
+  return signature;
+}
+
+// ============================================================================
+// Bonding Curve Data Fetching
+// ============================================================================
+
+/**
+ * Fetch bonding curve data for a token from pump.fun
+ */
+export async function getBondingCurveData(mint: string): Promise<BondingCurveData | null> {
+  try {
+    const response = await fetch(`${PUMP_FUN_API}/coins/${mint}`);
+    
+    if (!response.ok) {
+      return null;
+    }
+
+    const data = await response.json();
+    
+    const virtualSolReserves = (data.virtual_sol_reserves || 0) / LAMPORTS_PER_SOL;
+    const realSolReserves = (data.real_sol_reserves || 0) / LAMPORTS_PER_SOL;
+    
+    // Calculate progress (0-100%)
+    const progress = Math.min((realSolReserves / BONDING_CURVE_GRADUATION_SOL) * 100, 100);
+    
+    return {
+      mint,
+      virtualSolReserves,
+      virtualTokenReserves: data.virtual_token_reserves || 0,
+      realSolReserves,
+      realTokenReserves: data.real_token_reserves || 0,
+      tokenTotalSupply: data.total_supply || 0,
+      complete: data.complete || progress >= 100,
+      progress,
+      marketCapSol: virtualSolReserves,
+    };
+  } catch (error) {
+    console.error('Error fetching bonding curve:', error);
+    return null;
+  }
 }
 
 /**
- * Check if pump.fun is available (mainnet check)
+ * Fetch token info including metadata from pump.fun
+ */
+export async function getTokenInfo(mint: string): Promise<TokenInfo | null> {
+  try {
+    const response = await fetch(`${PUMP_FUN_API}/coins/${mint}`);
+    
+    if (!response.ok) {
+      return null;
+    }
+
+    const data = await response.json();
+    const bondingCurve = await getBondingCurveData(mint);
+    
+    return {
+      mint: data.mint,
+      name: data.name,
+      symbol: data.symbol,
+      description: data.description,
+      image: data.image_uri,
+      creator: data.creator,
+      createdTimestamp: data.created_timestamp,
+      bondingCurve,
+      usdMarketCap: data.usd_market_cap,
+      replyCount: data.reply_count,
+    };
+  } catch (error) {
+    console.error('Error fetching token info:', error);
+    return null;
+  }
+}
+
+/**
+ * Fetch all tokens created by a wallet
+ */
+export async function getCreatedTokens(walletAddress: string): Promise<TokenInfo[]> {
+  try {
+    const response = await fetch(
+      `${PUMP_FUN_API}/coins/user-created-coins/${walletAddress}?limit=50&offset=0`
+    );
+    
+    if (!response.ok) {
+      return [];
+    }
+
+    const coins = await response.json();
+    
+    // Fetch bonding curve data for each
+    const tokensWithCurve = await Promise.all(
+      coins.map(async (coin: any) => {
+        const bondingCurve = await getBondingCurveData(coin.mint);
+        return {
+          mint: coin.mint,
+          name: coin.name,
+          symbol: coin.symbol,
+          description: coin.description || '',
+          image: coin.image_uri,
+          creator: coin.creator,
+          createdTimestamp: coin.created_timestamp,
+          bondingCurve,
+          usdMarketCap: coin.usd_market_cap,
+          replyCount: coin.reply_count,
+        };
+      })
+    );
+    
+    return tokensWithCurve;
+  } catch (error) {
+    console.error('Error fetching created tokens:', error);
+    return [];
+  }
+}
+
+// ============================================================================
+// Utility Functions
+// ============================================================================
+
+/**
+ * Get the pump.fun URL for a token
+ */
+export function getPumpFunUrl(mint: string): string {
+  return `https://pump.fun/${mint}`;
+}
+
+/**
+ * Check if pump.fun is available (mainnet only)
  */
 export function isPumpFunAvailable(network: string): boolean {
-  // pump.fun only works on mainnet-beta
   return network === 'mainnet-beta';
 }
 
 /**
- * Estimate the cost of creating a token on pump.fun
- * Approximate costs in SOL
+ * Estimate the cost of creating a token
  */
-export function estimateCreateCost(): {
+export function estimateCreateCost(initialBuyAmount: number = 0): {
   rent: number;
   fee: number;
+  devBuy: number;
   total: number;
 } {
-  const rent = 0.02; // Approximate rent for accounts
-  const fee = 0.01; // Transaction + priority fees
-  const total = rent + fee;
+  const rent = 0.02;
+  const fee = 0.01;
+  const devBuy = initialBuyAmount;
+  return { rent, fee, devBuy, total: rent + fee + devBuy };
+}
 
-  return { rent, fee, total };
+/**
+ * Format SOL amount for display
+ */
+export function formatSol(amount: number): string {
+  if (amount >= 1000) {
+    return `${(amount / 1000).toFixed(2)}K`;
+  }
+  if (amount >= 1) {
+    return amount.toFixed(2);
+  }
+  return amount.toFixed(4);
+}
+
+/**
+ * Calculate token price from bonding curve
+ */
+export function calculatePrice(bondingCurve: BondingCurveData): number {
+  if (bondingCurve.virtualTokenReserves === 0) return 0;
+  return bondingCurve.virtualSolReserves / bondingCurve.virtualTokenReserves;
 }
