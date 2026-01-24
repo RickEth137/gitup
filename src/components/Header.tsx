@@ -5,11 +5,18 @@ import { WalletMultiButton } from '@solana/wallet-adapter-react-ui';
 import { signIn, signOut, useSession } from 'next-auth/react';
 import Image from 'next/image';
 import Link from 'next/link';
-import { Github, LogOut, Rocket, Gift } from 'lucide-react';
+import { useState, useEffect } from 'react';
+import { Github, LogOut, Rocket, Gift, User } from 'lucide-react';
 
 export function Header() {
   const { data: session, status } = useSession();
-  const { connected } = useWallet();
+  const { connected, publicKey } = useWallet();
+  const [mounted, setMounted] = useState(false);
+
+  // Fix hydration mismatch
+  useEffect(() => {
+    setMounted(true);
+  }, []);
 
   return (
     <header className="fixed top-0 left-0 right-0 z-50 bg-[#0a0a0a]/80 backdrop-blur-xl border-b border-white/5">
@@ -44,6 +51,14 @@ export function Header() {
             >
               Explore
             </Link>
+            {mounted && connected && publicKey && (
+              <Link
+                href={`/profile/${publicKey.toBase58()}`}
+                className="px-4 py-2 text-white/50 hover:text-[#00FF41] transition-colors text-sm font-medium"
+              >
+                Profile
+              </Link>
+            )}
           </nav>
 
           {/* Auth Buttons */}
@@ -85,9 +100,13 @@ export function Header() {
 
             {/* Wallet */}
             <div className="header-wallet">
-              <WalletMultiButton>
-                {connected ? undefined : 'Connect Wallet'}
-              </WalletMultiButton>
+              {mounted ? (
+                <WalletMultiButton>
+                  {connected ? undefined : 'Connect Wallet'}
+                </WalletMultiButton>
+              ) : (
+                <div className="w-[160px] h-[40px] bg-white/10 rounded-lg animate-pulse" />
+              )}
             </div>
           </div>
         </div>

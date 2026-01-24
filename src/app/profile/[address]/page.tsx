@@ -114,7 +114,6 @@ export default function ProfilePage() {
   // Calculate stats
   const totalTokens = tokens.length;
   const graduatedTokens = tokens.filter(t => t.bondingCurve?.complete).length;
-  const totalMarketCap = tokens.reduce((sum, t) => sum + (t.usdMarketCap || 0), 0);
 
   return (
     <div className="min-h-screen">
@@ -154,7 +153,7 @@ export default function ProfilePage() {
           </div>
 
           {/* Stats */}
-          <div className="grid grid-cols-3 gap-4 mt-6 pt-6 border-t border-zinc-800">
+          <div className="grid grid-cols-2 gap-4 mt-6 pt-6 border-t border-zinc-800">
             <div>
               <p className="text-zinc-500 text-xs mb-1">GitUps Launched</p>
               <p className="text-white font-mono text-2xl">{totalTokens}</p>
@@ -162,12 +161,6 @@ export default function ProfilePage() {
             <div>
               <p className="text-zinc-500 text-xs mb-1">Graduated</p>
               <p className="text-green-500 font-mono text-2xl">{graduatedTokens}</p>
-            </div>
-            <div>
-              <p className="text-zinc-500 text-xs mb-1">Total Market Cap</p>
-              <p className="text-white font-mono text-2xl">
-                {totalMarketCap > 0 ? `$${(totalMarketCap / 1000).toFixed(1)}K` : '-'}
-              </p>
             </div>
           </div>
         </div>

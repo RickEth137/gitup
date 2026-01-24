@@ -2,10 +2,10 @@
 
 import { useState, useRef, useEffect, useMemo } from 'react';
 import { useSession, signIn } from 'next-auth/react';
-import { useWallet } from '@solana/wallet-adapter-react';
+import { useWallet, useConnection } from '@solana/wallet-adapter-react';
 import { WalletMultiButton } from '@solana/wallet-adapter-react-ui';
-import { Github, Twitter, ArrowRight, ArrowLeft, Wallet, CheckCircle, AlertCircle, Search, Star, GitFork, ExternalLink, Send, Instagram, Facebook, ImageIcon, MapPin, Building2, Link as LinkIcon, Users, Calendar } from 'lucide-react';
-import { calculateSolCostForSupply } from '@/lib/pumpfun';
+import { Github, Twitter, ArrowRight, ArrowLeft, Wallet, CheckCircle, AlertCircle, Search, Star, GitFork, ExternalLink, Send, Instagram, Facebook, ImageIcon, MapPin, Building2, Link as LinkIcon, Users, Calendar, Gift, Rocket } from 'lucide-react';
+import { calculateSolCostForSupply, createToken, CreateTokenResult } from '@/lib/pumpfun';
 import { useSolPrice } from '@/lib/useSolPrice';
 
 type LaunchMode = 'select' | 'own-repo' | 'other-repo' | 'own-gitlab' | 'other-gitlab' | 'twitter' | 'telegram' | 'instagram' | 'facebook';
@@ -58,7 +58,8 @@ interface GitHubUser {
 
 export default function LaunchPage() {
   const { data: session, status } = useSession();
-  const { connected, publicKey } = useWallet();
+  const { connected, publicKey, signTransaction } = useWallet();
+  const { connection } = useConnection();
   
   const [launchMode, setLaunchMode] = useState<LaunchMode>('select');
   const [step, setStep] = useState<Step>('mode');
@@ -74,6 +75,8 @@ export default function LaunchPage() {
   const [tokenBanner, setTokenBanner] = useState<File | null>(null);
   const [tokenBannerPreview, setTokenBannerPreview] = useState<string>('');
   const [isLaunching, setIsLaunching] = useState(false);
+  const [launchError, setLaunchError] = useState<string | null>(null);
+  const [launchResult, setLaunchResult] = useState<CreateTokenResult | null>(null);
   const [readmeContent, setReadmeContent] = useState<string>('');
   const [isLoadingReadme, setIsLoadingReadme] = useState(false);
   const [repoLanguages, setRepoLanguages] = useState<Record<string, number>>({});
@@ -329,17 +332,64 @@ export default function LaunchPage() {
   };
 
   const handleLaunch = async () => {
+    if (!publicKey || !signTransaction) {
+      setLaunchError('Wallet not connected');
+      return;
+    }
+
     setIsLaunching(true);
-    // TODO: Implement actual launch logic
-    await new Promise(resolve => setTimeout(resolve, 2000));
-    setIsLaunching(false);
-    setStep('success');
+    setLaunchError(null);
+
+    try {
+      // Get the image as a blob
+      let imageBlob: Blob;
+      if (tokenLogo) {
+        imageBlob = tokenLogo;
+      } else if (tokenLogoPreview) {
+        // Fetch the avatar URL and convert to blob
+        const response = await fetch(tokenLogoPreview);
+        imageBlob = await response.blob();
+      } else {
+        throw new Error('No token logo selected');
+      }
+
+      // Create the token on pump.fun
+      const result = await createToken(
+        {
+          metadata: {
+            name: tokenName,
+            symbol: tokenSymbol,
+            description: tokenDescription,
+            image: imageBlob,
+            website: selectedEntity?.html_url,
+          },
+          initialBuyAmount: 0.001, // Small initial buy
+          slippage: 10,
+          wallet: {
+            publicKey,
+            signTransaction,
+          },
+        },
+        connection
+      );
+
+      console.log('Token created:', result);
+      setLaunchResult(result);
+      setStep('success');
+    } catch (error) {
+      console.error('Launch error:', error);
+      setLaunchError(error instanceof Error ? error.message : 'Failed to launch token');
+    } finally {
+      setIsLaunching(false);
+    }
   };
 
   const goBack = () => {
     if (step === 'connect') setStep('mode');
     else if (step === 'search') {
-      if (!isConnected) setStep('connect');
+      // For own repos, check if we came through connect step
+      const needsAuth = launchMode === 'own-repo' || launchMode === 'own-gitlab';
+      if (needsAuth && !isConnected) setStep('connect');
       else setStep('mode');
     }
     else if (step === 'customize') setStep('search');
@@ -354,6 +404,8 @@ export default function LaunchPage() {
     setSelectedEntity(null);
     setTokenName('');
     setTokenSymbol('');
+    setLaunchError(null);
+    setLaunchResult(null);
   };
 
   // Mode Selection Screen
@@ -1103,12 +1155,24 @@ export default function LaunchPage() {
       {launchMode === 'other-repo' && creatorAllocation > 0 && (
         <div className="p-4 rounded-xl border border-white/10 bg-white/[0.02] mb-6">
           <div className="flex items-center gap-3">
-            <div className="w-10 h-10 rounded-full bg-white/5 flex items-center justify-center">
-              <span className="text-lg">💎</span>
+            <div className="w-10 h-10 rounded-full bg-[#00FF41]/10 flex items-center justify-center">
+              <Gift className="w-5 h-5 text-[#00FF41]" />
             </div>
             <div className="flex-1">
               <p className="text-sm font-medium text-white">{creatorAllocation}% Developer Supply</p>
               <p className="text-xs text-white/40">Reserved for the repo owner to claim after verification</p>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {launchError && (
+        <div className="p-4 rounded-xl bg-red-500/10 border border-red-500/30 mb-4">
+          <div className="flex items-start gap-3">
+            <AlertCircle className="w-5 h-5 text-red-400 flex-shrink-0 mt-0.5" />
+            <div>
+              <p className="text-sm font-medium text-red-400">Launch Failed</p>
+              <p className="text-xs text-red-400/70 mt-1">{launchError}</p>
             </div>
           </div>
         </div>
@@ -1126,7 +1190,8 @@ export default function LaunchPage() {
           </>
         ) : (
           <>
-            🚀 Launch on pump.fun
+            <Rocket className="w-5 h-5" />
+            Launch on pump.fun
           </>
         )}
       </button>
@@ -1154,6 +1219,26 @@ export default function LaunchPage() {
             <span className="text-white/50">Repository</span>
             <span className="text-white font-mono">{selectedEntity?.full_name}</span>
           </div>
+          {launchResult && (
+            <>
+              <div className="flex justify-between items-center">
+                <span className="text-white/50">Mint Address</span>
+                <span className="text-white font-mono text-xs truncate max-w-[200px]">{launchResult.mint}</span>
+              </div>
+              <div className="flex justify-between items-center">
+                <span className="text-white/50">Transaction</span>
+                <a 
+                  href={`https://solscan.io/tx/${launchResult.signature}`}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="text-[#00FF41] font-mono text-xs hover:underline flex items-center gap-1"
+                >
+                  {launchResult.signature.slice(0, 8)}...{launchResult.signature.slice(-8)}
+                  <ExternalLink className="w-3 h-3" />
+                </a>
+              </div>
+            </>
+          )}
         </div>
       </div>
 
@@ -1165,7 +1250,7 @@ export default function LaunchPage() {
           Launch Another
         </button>
         <a
-          href="https://pump.fun"
+          href={launchResult ? `https://pump.fun/coin/${launchResult.mint}` : 'https://pump.fun'}
           target="_blank"
           rel="noopener noreferrer"
           className="flex-1 py-3 bg-[#00FF41] text-black font-semibold rounded-xl hover:bg-[#00FF41]/90 transition-all flex items-center justify-center gap-2"
