@@ -38,10 +38,10 @@ export function LaunchSuccess() {
 
       <div>
         <h2 className="text-2xl font-medium mb-2">
-          Token Launched
+          GitUp Launched!
         </h2>
         <p className="text-muted text-sm">
-          Your repository has been tokenized on pump.fun
+          Your repository is now live on pump.fun
         </p>
       </div>
 

@@ -3,7 +3,6 @@
 import { useState, useEffect } from 'react';
 import { useParams } from 'next/navigation';
 import Link from 'next/link';
-import { Header } from '@/components/Header';
 import { 
   TokenInfo, 
   getCreatedTokens,
@@ -118,9 +117,7 @@ export default function ProfilePage() {
   const totalMarketCap = tokens.reduce((sum, t) => sum + (t.usdMarketCap || 0), 0);
 
   return (
-    <div className="min-h-screen bg-black">
-      <Header />
-      
+    <div className="min-h-screen">
       <main className="max-w-4xl mx-auto px-4 py-12">
         {/* Profile Header */}
         <div className="border border-zinc-800 bg-zinc-950 p-8 mb-8">
@@ -159,7 +156,7 @@ export default function ProfilePage() {
           {/* Stats */}
           <div className="grid grid-cols-3 gap-4 mt-6 pt-6 border-t border-zinc-800">
             <div>
-              <p className="text-zinc-500 text-xs mb-1">Tokens Launched</p>
+              <p className="text-zinc-500 text-xs mb-1">GitUps Launched</p>
               <p className="text-white font-mono text-2xl">{totalTokens}</p>
             </div>
             <div>
@@ -177,7 +174,7 @@ export default function ProfilePage() {
 
         {/* Tokens Section */}
         <div className="mb-6">
-          <h2 className="text-white text-xl font-bold mb-4">Launched Tokens</h2>
+          <h2 className="text-white text-xl font-bold mb-4">Launched GitUps</h2>
         </div>
 
         {isLoading ? (
@@ -191,7 +188,7 @@ export default function ProfilePage() {
           </div>
         ) : tokens.length === 0 ? (
           <div className="border border-zinc-800 bg-zinc-950 p-12 text-center">
-            <p className="text-zinc-500 mb-4">This wallet hasn't launched any tokens yet</p>
+            <p className="text-zinc-500 mb-4">This wallet hasn't launched any GitUps yet</p>
           </div>
         ) : (
           <div className="space-y-4">

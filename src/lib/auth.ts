@@ -1,5 +1,6 @@
 import { NextAuthOptions } from 'next-auth';
 import GithubProvider from 'next-auth/providers/github';
+import GitLabProvider from 'next-auth/providers/gitlab';
 import prisma from '@/lib/prisma';
 
 // Minimum account age in days to prevent spam
@@ -16,11 +17,28 @@ export const authOptions: NextAuthOptions = {
         },
       },
     }),
+    GitLabProvider({
+      clientId: process.env.GITLAB_CLIENT_ID!,
+      clientSecret: process.env.GITLAB_CLIENT_SECRET!,
+      authorization: {
+        params: {
+          scope: 'read_user read_api read_repository',
+        },
+      },
+    }),
   ],
   callbacks: {
     async signIn({ user, account, profile }) {
+      // GitHub sign in
       if (account?.provider === 'github' && profile) {
-        const githubProfile = profile as any;
+        const githubProfile = profile as {
+          id: number;
+          login: string;
+          email?: string;
+          name?: string;
+          avatar_url?: string;
+          created_at: string;
+        };
         const accountCreatedAt = new Date(githubProfile.created_at);
         const accountAgeDays = Math.floor(
           (Date.now() - accountCreatedAt.getTime()) / (1000 * 60 * 60 * 24)
@@ -38,32 +56,74 @@ export const authOptions: NextAuthOptions = {
             where: { githubId: String(githubProfile.id) },
             update: {
               githubLogin: githubProfile.login,
-              email: githubProfile.email,
-              name: githubProfile.name,
-              avatarUrl: githubProfile.avatar_url,
-              accessToken: account.access_token,
+              githubEmail: githubProfile.email,
+              githubAvatar: githubProfile.avatar_url,
+              githubToken: account.access_token,
             },
             create: {
               githubId: String(githubProfile.id),
               githubLogin: githubProfile.login,
-              email: githubProfile.email,
-              name: githubProfile.name,
-              avatarUrl: githubProfile.avatar_url,
-              accessToken: account.access_token,
-              accountAge: accountCreatedAt,
+              githubEmail: githubProfile.email,
+              githubAvatar: githubProfile.avatar_url,
+              githubToken: account.access_token,
+              githubCreatedAt: accountCreatedAt,
             },
           });
         } catch (error) {
           console.error('Error saving user:', error);
         }
       }
+
+      // GitLab sign in
+      if (account?.provider === 'gitlab' && profile) {
+        const gitlabProfile = profile as {
+          id: number;
+          username: string;
+          email?: string;
+          name?: string;
+          avatar_url?: string;
+          created_at?: string;
+        };
+
+        // Upsert user in database
+        try {
+          await prisma.user.upsert({
+            where: { gitlabId: String(gitlabProfile.id) },
+            update: {
+              gitlabLogin: gitlabProfile.username,
+              gitlabEmail: gitlabProfile.email,
+              gitlabAvatar: gitlabProfile.avatar_url,
+              gitlabToken: account.access_token,
+            },
+            create: {
+              gitlabId: String(gitlabProfile.id),
+              gitlabLogin: gitlabProfile.username,
+              gitlabEmail: gitlabProfile.email,
+              gitlabAvatar: gitlabProfile.avatar_url,
+              gitlabToken: account.access_token,
+            },
+          });
+        } catch (error) {
+          console.error('Error saving GitLab user:', error);
+        }
+      }
+
       return true;
     },
     async jwt({ token, account, profile }) {
       if (account) {
         token.accessToken = account.access_token;
-        token.githubId = (profile as any)?.id;
-        token.githubLogin = (profile as any)?.login;
+        token.provider = account.provider;
+        
+        if (account.provider === 'github') {
+          token.githubId = (profile as { id?: number })?.id;
+          token.githubLogin = (profile as { login?: string })?.login;
+        }
+        
+        if (account.provider === 'gitlab') {
+          token.gitlabId = (profile as { id?: number })?.id;
+          token.gitlabLogin = (profile as { username?: string })?.username;
+        }
       }
       return token;
     },
@@ -71,10 +131,13 @@ export const authOptions: NextAuthOptions = {
       return {
         ...session,
         accessToken: token.accessToken,
+        provider: token.provider,
         user: {
           ...session.user,
           githubId: token.githubId,
           githubLogin: token.githubLogin,
+          gitlabId: token.gitlabId,
+          gitlabLogin: token.gitlabLogin,
         },
       };
     },

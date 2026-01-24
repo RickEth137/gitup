@@ -3,7 +3,6 @@
 import { useState, useEffect } from 'react';
 import { useParams } from 'next/navigation';
 import Link from 'next/link';
-import { Header } from '@/components/Header';
 import { 
   TokenInfo, 
   getPumpFunUrl, 
@@ -45,8 +44,7 @@ export default function TokenPage() {
 
   if (isLoading) {
     return (
-      <div className="min-h-screen bg-black">
-        <Header />
+      <div className="min-h-screen">
         <main className="max-w-4xl mx-auto px-4 py-20">
           <div className="flex items-center justify-center">
             <div className="animate-spin h-8 w-8 border-2 border-white border-t-transparent rounded-full" />
@@ -58,13 +56,12 @@ export default function TokenPage() {
 
   if (error || !token) {
     return (
-      <div className="min-h-screen bg-black">
-        <Header />
+      <div className="min-h-screen">
         <main className="max-w-4xl mx-auto px-4 py-20 text-center">
-          <h1 className="text-2xl text-white mb-4">Token Not Found</h1>
-          <p className="text-zinc-500 mb-8">{error || 'This token does not exist'}</p>
+          <h1 className="text-2xl text-white mb-4">GitUp Not Found</h1>
+          <p className="text-zinc-500 mb-8">{error || 'This GitUp does not exist'}</p>
           <Link href="/explore" className="text-white underline hover:no-underline">
-            Explore tokens
+            Explore GitUps
           </Link>
         </main>
       </div>
@@ -76,9 +73,7 @@ export default function TokenPage() {
   const marketCapSol = token.bondingCurve?.marketCapSol ?? 0;
 
   return (
-    <div className="min-h-screen bg-black">
-      <Header />
-      
+    <div className="min-h-screen">
       <main className="max-w-4xl mx-auto px-4 py-12">
         {/* Back Link */}
         <Link 

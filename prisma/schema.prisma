@@ -1,4 +1,4 @@
-// Prisma schema for git.fun
+// Prisma schema for GitUp.fun - Tokenize GitHub Repos & X Accounts
 
 generator client {
   provider = "prisma-client-js"
@@ -9,67 +9,188 @@ datasource db {
   url      = env("DATABASE_URL")
 }
 
+// ============================================
+// User Authentication
+// ============================================
+
 model User {
   id            String    @id @default(cuid())
-  githubId      String    @unique
-  githubLogin   String
-  email         String?
-  name          String?
-  avatarUrl     String?
-  accessToken   String?   // GitHub OAuth token (encrypted in production)
-  createdAt     DateTime  @default(now())
-  accountAge    DateTime  // GitHub account creation date for spam prevention
   
-  tokenizedRepos TokenizedRepo[]
+  // GitHub Auth (optional - for repo ownership verification)
+  githubId      String?   @unique
+  githubLogin   String?
+  githubEmail   String?
+  githubAvatar  String?
+  githubToken   String?
+  githubCreatedAt DateTime?
+  
+  // X/Twitter Auth (optional - for X account verification)
+  twitterId     String?   @unique
+  twitterHandle String?
+  twitterName   String?
+  twitterAvatar String?
+  twitterToken  String?
+  
+  // GitLab Auth (optional - for GitLab repo verification)
+  gitlabId      String?   @unique
+  gitlabLogin   String?
+  gitlabEmail   String?
+  gitlabAvatar  String?
+  gitlabToken   String?
+  
+  // Telegram Auth (optional - for Telegram account verification)
+  telegramId    String?   @unique
+  telegramUsername String?
+  telegramName  String?
+  telegramAvatar String?
+  
+  // Instagram Auth (optional - for Instagram account verification via Meta)
+  instagramId       String?   @unique
+  instagramUsername String?
+  instagramName     String?
+  instagramAvatar   String?
+  instagramToken    String?
+  
+  // Facebook Auth (optional - for Facebook page verification via Meta)
+  facebookId        String?   @unique
+  facebookUsername  String?
+  facebookName      String?
+  facebookAvatar    String?
+  facebookToken     String?
+  
+  // General
+  email         String?
+  createdAt     DateTime  @default(now())
+  updatedAt     DateTime  @updatedAt
+  
+  // Relations
+  launchedTokens  TokenLaunch[]  @relation("Launcher")
+  claimedTokens   TokenLaunch[]  @relation("Claimer")
   
   @@index([githubLogin])
+  @@index([twitterHandle])
+  @@index([gitlabLogin])
+  @@index([telegramUsername])
+  @@index([instagramUsername])
+  @@index([facebookUsername])
 }
 
-model TokenizedRepo {
+// ============================================
+// Token Launch - Core entity for all tokenized assets
+// ============================================
+
+model TokenLaunch {
   id              String   @id @default(cuid())
   
-  // GitHub Info
-  repoId          String   @unique // GitHub repo ID - prevents double minting
-  repoName        String
-  repoFullName    String   // owner/repo format
+  // What is being tokenized
+  entityType      String   // "github" | "twitter" | "gitlab" | "telegram" | "instagram" | "facebook"
+  entityId        String   // Repo ID, User ID, Page ID, etc.
+  entityHandle    String   // "owner/repo", "@handle", "@username", "page-name"
+  entityName      String   // Display name
+  entityAvatar    String?  // Profile pic / repo owner avatar
+  entityUrl       String   // Link to GitHub repo or X profile
+  
+  // For GitHub repos specifically
+  repoStars       Int?
+  repoForks       Int?
   repoDescription String?
-  repoUrl         String
-  repoStars       Int      @default(0)
-  repoForks       Int      @default(0)
+  
+  // For X accounts specifically
+  twitterFollowers Int?
+  twitterVerified  Boolean?
+  
+  // For GitLab repos specifically
+  gitlabStars     Int?
+  gitlabForks     Int?
+  gitlabDescription String?
+  
+  // For Telegram accounts specifically
+  telegramMembers Int?      // For channels/groups
+  telegramType    String?   // "user" | "channel" | "group"
+  
+  // For Instagram accounts specifically
+  instagramFollowers Int?
+  instagramVerified  Boolean?
   
   // Token Info
   tokenName       String
   tokenSymbol     String
-  tokenMint       String   @unique // Solana mint address
-  metadataUri     String   // IPFS URI for token metadata
-  logoUri         String?  // IPFS URI for logo
-  bannerUri       String?  // IPFS URI for banner
+  tokenMint       String   @unique
+  tokenLogo       String?  // IPFS URI
+  metadataUri     String   // IPFS URI
+  
+  // Escrow Wallet (for tokens launched by non-owners)
+  escrowPublicKey  String?
+  escrowPrivateKey String?  // Encrypted - only set if launcher != owner
+  isEscrow         Boolean  @default(false)
   
   // Pump.fun Info
-  bondingCurve    String?  // pump.fun bonding curve address
-  transactionSig  String   // Launch transaction signature
+  bondingCurve    String?
+  transactionSig  String
   
-  // Relations
-  userId          String
-  user            User     @relation(fields: [userId], references: [id])
+  // Ownership & Claiming
+  launcherId      String   // Who launched the token
+  launcher        User     @relation("Launcher", fields: [launcherId], references: [id])
+  
+  ownerId         String?  // Verified owner (null until claimed)
+  owner           User?    @relation("Claimer", fields: [ownerId], references: [id])
+  
+  isClaimed       Boolean  @default(false)
+  claimedAt       DateTime?
+  claimedWallet   String?  // Wallet that received the claimed fees
+  
+  // Stats (updated periodically)
+  totalFeesClaimed Decimal? @db.Decimal(20, 9)
   
   // Timestamps
   launchedAt      DateTime @default(now())
+  updatedAt       DateTime @updatedAt
   
-  @@index([repoFullName])
+  @@unique([entityType, entityId])
+  @@index([entityType])
+  @@index([entityHandle])
   @@index([tokenMint])
-  @@index([userId])
+  @@index([launcherId])
+  @@index([ownerId])
+  @@index([isClaimed])
 }
+
+// ============================================
+// Fee Claims - Track all claim transactions
+// ============================================
+
+model FeeClaim {
+  id              String   @id @default(cuid())
+  
+  tokenMint       String
+  claimerWallet   String
+  
+  amountSol       Decimal  @db.Decimal(20, 9)
+  transactionSig  String
+  
+  claimedAt       DateTime @default(now())
+  
+  @@index([tokenMint])
+  @@index([claimerWallet])
+}
+
+// ============================================
+// Launch Attempts - For tracking/debugging
+// ============================================
 
 model LaunchAttempt {
   id            String   @id @default(cuid())
-  repoId        String
-  repoFullName  String
-  userId        String
+  
+  entityType    String
+  entityId      String
+  entityHandle  String
+  
+  userId        String?
   status        String   // 'pending', 'success', 'failed'
   errorMessage  String?
+  
   createdAt     DateTime @default(now())
   
-  @@index([repoId])
+  @@index([entityType, entityId])
   @@index([userId])
 }

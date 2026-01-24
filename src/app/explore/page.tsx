@@ -2,29 +2,32 @@
 
 import { useEffect, useState } from 'react';
 import Link from 'next/link';
-import { Star, GitFork, ExternalLink, Search } from 'lucide-react';
+import { Star, GitFork, ExternalLink, Search, Github, Twitter } from 'lucide-react';
 
-interface TokenizedRepo {
+interface TokenLaunch {
   id: string;
-  repoName: string;
-  repoFullName: string;
+  entityType: 'github' | 'twitter';
+  entityHandle: string;
+  entityName: string;
+  entityUrl: string;
+  repoStars: number | null;
+  repoForks: number | null;
   repoDescription: string | null;
-  repoUrl: string;
-  repoStars: number;
-  repoForks: number;
+  twitterFollowers: number | null;
   tokenName: string;
   tokenSymbol: string;
   tokenMint: string;
-  logoUri: string | null;
+  tokenLogo: string | null;
   launchedAt: string;
-  user: {
-    githubLogin: string;
-    avatarUrl: string | null;
+  isClaimed: boolean;
+  launcher: {
+    githubLogin: string | null;
+    githubAvatar: string | null;
   };
 }
 
 export default function ExplorePage() {
-  const [launches, setLaunches] = useState<TokenizedRepo[]>([]);
+  const [launches, setLaunches] = useState<TokenLaunch[]>([]);
   const [loading, setLoading] = useState(true);
   const [searchQuery, setSearchQuery] = useState('');
 
@@ -46,34 +49,38 @@ export default function ExplorePage() {
 
   const filteredLaunches = launches.filter(
     (launch) =>
-      launch.repoName.toLowerCase().includes(searchQuery.toLowerCase()) ||
+      launch.entityName.toLowerCase().includes(searchQuery.toLowerCase()) ||
       launch.tokenName.toLowerCase().includes(searchQuery.toLowerCase()) ||
       launch.tokenSymbol.toLowerCase().includes(searchQuery.toLowerCase()) ||
-      launch.user.githubLogin.toLowerCase().includes(searchQuery.toLowerCase())
+      launch.entityHandle.toLowerCase().includes(searchQuery.toLowerCase())
   );
 
   return (
-    <div className="min-h-screen py-16 px-4">
-      <div className="max-w-6xl mx-auto">
+    <div className="min-h-screen bg-[#0a0a0a] pt-24 pb-16 px-6">
+      {/* Ambient glow */}
+      <div className="fixed inset-0 overflow-hidden pointer-events-none">
+        <div className="absolute top-1/3 right-1/3 w-[500px] h-[500px] bg-[#00FF41]/5 rounded-full blur-[100px]" />
+      </div>
+
+      <div className="max-w-6xl mx-auto relative z-10">
         {/* Header */}
         <div className="mb-12">
-          <p className="text-xs text-muted uppercase tracking-wider mb-3">Browse</p>
-          <h1 className="text-3xl font-light mb-3">Tokenized Repositories</h1>
-          <p className="text-secondary text-sm max-w-lg">
-            Discover repositories tokenized by developers on Solana.
+          <h1 className="text-3xl font-bold text-white mb-3">Explore</h1>
+          <p className="text-white/50 text-sm max-w-lg">
+            Discover tokenized GitHub repos and X accounts.
           </p>
         </div>
 
         {/* Search */}
         <div className="mb-10">
           <div className="relative max-w-md">
-            <Search className="absolute left-3 top-1/2 -translate-y-1/2 text-muted w-4 h-4" />
+            <Search className="absolute left-4 top-1/2 -translate-y-1/2 text-white/30 w-5 h-5" />
             <input
               type="text"
-              placeholder="Search repos, tokens, developers..."
+              placeholder="Search tokens, repos, handles..."
               value={searchQuery}
               onChange={(e) => setSearchQuery(e.target.value)}
-              className="input pl-10 text-sm"
+              className="w-full pl-12 pr-4 py-3 bg-white/[0.03] border border-white/10 rounded-xl text-white placeholder:text-white/30 focus:outline-none focus:border-[#00FF41]/50"
             />
           </div>
         </div>
@@ -82,28 +89,28 @@ export default function ExplorePage() {
         {loading ? (
           <div className="grid md:grid-cols-2 lg:grid-cols-3 gap-4">
             {[1, 2, 3, 4, 5, 6].map((i) => (
-              <div key={i} className="card animate-pulse">
+              <div key={i} className="p-5 rounded-xl border border-white/5 bg-white/[0.02] animate-pulse">
                 <div className="flex items-center gap-3 mb-4">
-                  <div className="w-10 h-10 rounded-full bg-surface-light" />
+                  <div className="w-10 h-10 rounded-full bg-white/5" />
                   <div className="flex-1">
-                    <div className="h-4 bg-surface-light rounded w-3/4 mb-2" />
-                    <div className="h-3 bg-surface-light rounded w-1/2" />
+                    <div className="h-4 bg-white/5 rounded w-3/4 mb-2" />
+                    <div className="h-3 bg-white/5 rounded w-1/2" />
                   </div>
                 </div>
-                <div className="h-3 bg-surface-light rounded w-full mb-2" />
-                <div className="h-3 bg-surface-light rounded w-2/3" />
+                <div className="h-3 bg-white/5 rounded w-full mb-2" />
+                <div className="h-3 bg-white/5 rounded w-2/3" />
               </div>
             ))}
           </div>
         ) : filteredLaunches.length === 0 ? (
           <div className="text-center py-20">
-            <p className="text-muted text-sm mb-6">
+            <p className="text-white/40 text-sm mb-6">
               {searchQuery
-                ? 'No repositories match your search'
-                : 'No tokenized repositories yet'}
+                ? 'No tokens match your search'
+                : 'No tokens launched yet'}
             </p>
             {!searchQuery && (
-              <Link href="/launch" className="btn-primary text-sm">
+              <Link href="/launch" className="inline-flex items-center gap-2 px-6 py-3 bg-[#00FF41] text-black font-semibold rounded-xl hover:bg-[#00FF41]/90 transition-all">
                 Be the first to launch
               </Link>
             )}
@@ -116,57 +123,60 @@ export default function ExplorePage() {
                 href={`https://pump.fun/${launch.tokenMint}`}
                 target="_blank"
                 rel="noopener noreferrer"
-                className="card group cursor-pointer hover:border-border-light transition-colors"
+                className="group p-5 rounded-xl border border-white/5 bg-white/[0.02] hover:border-[#00FF41]/20 transition-all"
               >
                 <div className="flex items-center gap-3 mb-3">
-                  {launch.logoUri ? (
+                  {launch.tokenLogo ? (
                     <img
-                      src={launch.logoUri}
+                      src={launch.tokenLogo}
                       alt={launch.tokenName}
                       className="w-10 h-10 rounded-full object-cover"
                     />
                   ) : (
-                    <div className="w-10 h-10 rounded-full bg-surface-light flex items-center justify-center">
-                      <span className="text-sm">◈</span>
+                    <div className="w-10 h-10 rounded-full bg-white/5 flex items-center justify-center">
+                      {launch.entityType === 'github' ? (
+                        <Github className="w-5 h-5 text-white/40" />
+                      ) : (
+                        <Twitter className="w-5 h-5 text-white/40" />
+                      )}
                     </div>
                   )}
                   <div className="flex-1 min-w-0">
-                    <h3 className="font-medium text-sm truncate group-hover:text-primary transition-colors">
+                    <h3 className="font-semibold text-white truncate group-hover:text-[#00FF41] transition-colors">
                       {launch.tokenName}
                     </h3>
-                    <p className="text-xs text-secondary font-mono">
+                    <p className="text-xs text-white/40 font-mono">
                       ${launch.tokenSymbol}
                     </p>
                   </div>
-                  <ExternalLink className="w-3.5 h-3.5 text-muted opacity-0 group-hover:opacity-100 transition-opacity" />
+                  <ExternalLink className="w-4 h-4 text-white/20 opacity-0 group-hover:opacity-100 transition-opacity" />
                 </div>
 
-                <p className="text-xs text-muted mb-4 line-clamp-2">
-                  {launch.repoDescription || launch.repoFullName}
+                <p className="text-xs text-white/40 mb-4 line-clamp-2">
+                  {launch.repoDescription || launch.entityHandle}
                 </p>
 
                 <div className="flex items-center justify-between text-xs">
-                  <div className="flex items-center gap-3 text-muted">
-                    <span className="flex items-center gap-1">
-                      <Star className="w-3 h-3" />
-                      {launch.repoStars.toLocaleString()}
-                    </span>
-                    <span className="flex items-center gap-1">
-                      <GitFork className="w-3 h-3" />
-                      {launch.repoForks.toLocaleString()}
-                    </span>
-                  </div>
-                  <div className="flex items-center gap-1.5">
-                    {launch.user.avatarUrl && (
-                      <img
-                        src={launch.user.avatarUrl}
-                        alt={launch.user.githubLogin}
-                        className="w-4 h-4 rounded-full"
-                      />
+                  <div className="flex items-center gap-3 text-white/30">
+                    {launch.entityType === 'github' && (
+                      <>
+                        <span className="flex items-center gap-1">
+                          <Star className="w-3 h-3" />
+                          {(launch.repoStars || 0).toLocaleString()}
+                        </span>
+                        <span className="flex items-center gap-1">
+                          <GitFork className="w-3 h-3" />
+                          {(launch.repoForks || 0).toLocaleString()}
+                        </span>
+                      </>
                     )}
-                    <span className="text-muted">
-                      {launch.user.githubLogin}
-                    </span>
+                  </div>
+                  <div className="flex items-center gap-2">
+                    {!launch.isClaimed && (
+                      <span className="px-2 py-0.5 text-[10px] rounded bg-white/5 text-white/40">
+                        Unclaimed
+                      </span>
+                    )}
                   </div>
                 </div>
               </a>

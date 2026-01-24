@@ -127,7 +127,7 @@ export function LaunchButton({ onSuccess }: LaunchButtonProps) {
 
       // Complete!
       setStage('complete');
-      setStageMessage('🎉 Token launched successfully!');
+      setStageMessage('🎉 GitUp launched successfully!');
       onSuccess();
     } catch (err: any) {
       console.error('Launch error:', err);
@@ -143,7 +143,7 @@ export function LaunchButton({ onSuccess }: LaunchButtonProps) {
       case 'idle':
         return (
           <>
-            <span>Launch Token</span>
+            <span>Launch GitUp</span>
             <span>→</span>
           </>
         );

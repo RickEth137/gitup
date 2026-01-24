@@ -16,7 +16,6 @@ interface LaunchRequestBody {
   tokenMint: string;
   metadataUri: string;
   logoUri?: string;
-  bannerUri?: string;
   bondingCurve?: string;
   transactionSig: string;
 }
@@ -26,7 +25,7 @@ export async function POST(request: NextRequest) {
   try {
     const session = await getServerSession(authOptions);
 
-    if (!session || !(session as any).user?.githubId) {
+    if (!session || !(session as { user?: { githubId?: string } }).user?.githubId) {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
     }
 
@@ -56,7 +55,7 @@ export async function POST(request: NextRequest) {
 
     // Get user from database
     const user = await prisma.user.findUnique({
-      where: { githubId: String((session as any).user.githubId) },
+      where: { githubId: String((session as { user?: { githubId?: string } }).user?.githubId) },
     });
 
     if (!user) {
@@ -64,8 +63,11 @@ export async function POST(request: NextRequest) {
     }
 
     // Check if repo is already tokenized
-    const existingToken = await prisma.tokenizedRepo.findUnique({
-      where: { repoId: body.repoId },
+    const existingToken = await prisma.tokenLaunch.findFirst({
+      where: { 
+        entityType: 'github',
+        entityId: body.repoId 
+      },
     });
 
     if (existingToken) {
@@ -76,33 +78,33 @@ export async function POST(request: NextRequest) {
     }
 
     // Record the launch
-    const tokenizedRepo = await prisma.tokenizedRepo.create({
+    const tokenLaunch = await prisma.tokenLaunch.create({
       data: {
-        repoId: body.repoId,
-        repoName: body.repoName,
-        repoFullName: body.repoFullName,
-        repoDescription: body.repoDescription,
-        repoUrl: body.repoUrl,
+        entityType: 'github',
+        entityId: body.repoId,
+        entityHandle: body.repoFullName,
+        entityName: body.repoName,
+        entityUrl: body.repoUrl,
         repoStars: body.repoStars,
         repoForks: body.repoForks,
+        repoDescription: body.repoDescription,
         tokenName: body.tokenName,
         tokenSymbol: body.tokenSymbol,
         tokenMint: body.tokenMint,
         metadataUri: body.metadataUri,
-        logoUri: body.logoUri,
-        bannerUri: body.bannerUri,
+        tokenLogo: body.logoUri,
         bondingCurve: body.bondingCurve,
         transactionSig: body.transactionSig,
-        userId: user.id,
+        launcherId: user.id,
       },
     });
 
     return NextResponse.json({
       success: true,
-      tokenizedRepo: {
-        id: tokenizedRepo.id,
-        tokenMint: tokenizedRepo.tokenMint,
-        transactionSig: tokenizedRepo.transactionSig,
+      tokenLaunch: {
+        id: tokenLaunch.id,
+        tokenMint: tokenLaunch.tokenMint,
+        transactionSig: tokenLaunch.transactionSig,
       },
     });
   } catch (error) {
@@ -121,21 +123,21 @@ export async function GET(request: NextRequest) {
     const limit = parseInt(searchParams.get('limit') || '20');
     const offset = parseInt(searchParams.get('offset') || '0');
 
-    const launches = await prisma.tokenizedRepo.findMany({
+    const launches = await prisma.tokenLaunch.findMany({
       take: limit,
       skip: offset,
       orderBy: { launchedAt: 'desc' },
       include: {
-        user: {
+        launcher: {
           select: {
             githubLogin: true,
-            avatarUrl: true,
+            githubAvatar: true,
           },
         },
       },
     });
 
-    const total = await prisma.tokenizedRepo.count();
+    const total = await prisma.tokenLaunch.count();
 
     return NextResponse.json({
       launches,
