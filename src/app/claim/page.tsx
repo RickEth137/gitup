@@ -191,7 +191,7 @@ export default function ClaimPage() {
               </div>
               <div>
                 <p className="font-medium text-white">Search for your token</p>
-                <p className="text-sm text-white/40">Find tokens created from your GitHub repos, GitLab projects, X account, or Telegram channel</p>
+                <p className="text-sm text-white/40">Find tokens created from your GitHub repos or GitLab projects</p>
               </div>
             </div>
             <div className="flex items-start gap-4">
@@ -200,7 +200,7 @@ export default function ClaimPage() {
               </div>
               <div>
                 <p className="font-medium text-white">Verify ownership</p>
-                <p className="text-sm text-white/40">Connect with the relevant platform (GitHub, GitLab, X, or Telegram) to prove ownership</p>
+                <p className="text-sm text-white/40">Connect with GitHub or GitLab to prove ownership</p>
               </div>
             </div>
             <div className="flex items-start gap-4">
