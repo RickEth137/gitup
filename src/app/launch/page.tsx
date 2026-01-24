@@ -1,10 +1,12 @@
 'use client';
 
-import { useState } from 'react';
+import { useState, useRef, useEffect, useMemo } from 'react';
 import { useSession, signIn } from 'next-auth/react';
 import { useWallet } from '@solana/wallet-adapter-react';
 import { WalletMultiButton } from '@solana/wallet-adapter-react-ui';
-import { Github, Twitter, ArrowRight, ArrowLeft, Wallet, CheckCircle, AlertCircle, Search, Star, GitFork, ExternalLink, Send, Instagram, Facebook, ImageIcon } from 'lucide-react';
+import { Github, Twitter, ArrowRight, ArrowLeft, Wallet, CheckCircle, AlertCircle, Search, Star, GitFork, ExternalLink, Send, Instagram, Facebook, ImageIcon, MapPin, Building2, Link as LinkIcon, Users, Calendar } from 'lucide-react';
+import { calculateSolCostForSupply } from '@/lib/pumpfun';
+import { useSolPrice } from '@/lib/useSolPrice';
 
 type LaunchMode = 'select' | 'own-repo' | 'other-repo' | 'own-gitlab' | 'other-gitlab' | 'twitter' | 'telegram' | 'instagram' | 'facebook';
 type Step = 'mode' | 'connect' | 'search' | 'customize' | 'launch' | 'success';
@@ -38,6 +40,22 @@ interface RepoResult {
   };
 }
 
+interface GitHubUser {
+  login: string;
+  name: string | null;
+  avatar_url: string;
+  html_url: string;
+  bio: string | null;
+  company: string | null;
+  location: string | null;
+  blog: string | null;
+  twitter_username: string | null;
+  followers: number;
+  following: number;
+  public_repos: number;
+  created_at: string;
+}
+
 export default function LaunchPage() {
   const { data: session, status } = useSession();
   const { connected, publicKey } = useWallet();
@@ -58,6 +76,73 @@ export default function LaunchPage() {
   const [isLaunching, setIsLaunching] = useState(false);
   const [readmeContent, setReadmeContent] = useState<string>('');
   const [isLoadingReadme, setIsLoadingReadme] = useState(false);
+  const [repoLanguages, setRepoLanguages] = useState<Record<string, number>>({});
+  const [repoOwnerProfile, setRepoOwnerProfile] = useState<GitHubUser | null>(null);
+  const [leftPanelHeight, setLeftPanelHeight] = useState<number | null>(null);
+  const [mounted, setMounted] = useState(false);
+  const leftPanelRef = useRef<HTMLDivElement>(null);
+  
+  // Fix hydration mismatch
+  useEffect(() => {
+    setMounted(true);
+  }, []);
+  
+  // GitHub language colors (subset of most common)
+  const languageColors: Record<string, string> = {
+    JavaScript: '#f1e05a',
+    TypeScript: '#3178c6',
+    Python: '#3572A5',
+    Java: '#b07219',
+    'C++': '#f34b7d',
+    C: '#555555',
+    'C#': '#178600',
+    Go: '#00ADD8',
+    Rust: '#dea584',
+    Ruby: '#701516',
+    PHP: '#4F5D95',
+    Swift: '#F05138',
+    Kotlin: '#A97BFF',
+    Dart: '#00B4AB',
+    Shell: '#89e051',
+    HTML: '#e34c26',
+    CSS: '#563d7c',
+    SCSS: '#c6538c',
+    Vue: '#41b883',
+    Svelte: '#ff3e00',
+    Markdown: '#083fa1',
+    JSON: '#292929',
+    YAML: '#cb171e',
+    Dockerfile: '#384d54',
+    Makefile: '#427819',
+    Lua: '#000080',
+    Perl: '#0298c3',
+    R: '#198CE7',
+    Scala: '#c22d40',
+    Haskell: '#5e5086',
+    Elixir: '#6e4a7e',
+    Clojure: '#db5855',
+    Julia: '#a270ba',
+    Jupyter: '#DA5B0B',
+    Solidity: '#AA6746',
+  };
+  
+  // Real-time SOL price
+  const { price: solPrice, solToUsd, formatUsd, loading: priceLoading } = useSolPrice();
+
+  // Sync right panel height with left panel
+  useEffect(() => {
+    if (leftPanelRef.current) {
+      const updateHeight = () => {
+        if (leftPanelRef.current) {
+          setLeftPanelHeight(leftPanelRef.current.offsetHeight);
+        }
+      };
+      updateHeight();
+      const resizeObserver = new ResizeObserver(updateHeight);
+      resizeObserver.observe(leftPanelRef.current);
+      return () => resizeObserver.disconnect();
+    }
+  }, [step, selectedEntity, launchMode]);
   const [creatorAllocation, setCreatorAllocation] = useState<number>(5); // Default 5% for creator
 
   const isConnected = session && connected;
@@ -174,6 +259,34 @@ export default function LaunchPage() {
     }
   };
 
+  // Fetch languages for a repo
+  const fetchLanguages = async (owner: string, repo: string) => {
+    try {
+      const response = await fetch(`https://api.github.com/repos/${owner}/${repo}/languages`);
+      if (response.ok) {
+        const data = await response.json();
+        setRepoLanguages(data);
+      }
+    } catch (error) {
+      console.error('Failed to fetch languages:', error);
+      setRepoLanguages({});
+    }
+  };
+
+  // Fetch GitHub user profile
+  const fetchUserProfile = async (username: string) => {
+    try {
+      const response = await fetch(`https://api.github.com/users/${username}`);
+      if (response.ok) {
+        const data = await response.json();
+        setRepoOwnerProfile(data);
+      }
+    } catch (error) {
+      console.error('Failed to fetch user profile:', error);
+      setRepoOwnerProfile(null);
+    }
+  };
+
   // Handle logo upload
   const handleLogoUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
@@ -207,7 +320,11 @@ export default function LaunchPage() {
     setTokenDescription(entity.description || `Token for ${entity.full_name} repository`);
     setTokenLogoPreview(entity.owner.avatar_url); // Default to owner avatar
     setReadmeContent('');
+    setRepoLanguages({});
+    setRepoOwnerProfile(null);
     fetchReadme(entity.owner.login, entity.name);
+    fetchLanguages(entity.owner.login, entity.name);
+    fetchUserProfile(entity.owner.login);
     setStep('customize');
   };
 
@@ -299,13 +416,13 @@ export default function LaunchPage() {
       </div>
 
       {/* Legend */}
-      <div className="flex justify-center gap-8 mt-8 text-xs text-white/40">
+      <div className="flex items-center justify-center gap-8 mt-8 text-xs text-white/40">
         <div className="flex items-center gap-2">
-          <CheckCircle className="w-4 h-4 text-[#00FF41]" />
+          <CheckCircle className="w-4 h-4 text-[#00FF41] flex-shrink-0" />
           <span>Direct = fees go to you</span>
         </div>
         <div className="flex items-center gap-2">
-          <AlertCircle className="w-4 h-4" />
+          <AlertCircle className="w-4 h-4 flex-shrink-0" />
           <span>Escrow = owner claims later</span>
         </div>
       </div>
@@ -385,8 +502,10 @@ export default function LaunchPage() {
               </div>
               {connected ? (
                 <CheckCircle className="w-5 h-5 text-[#00FF41]" />
-              ) : (
+              ) : mounted ? (
                 <WalletMultiButton />
+              ) : (
+                <div className="w-[160px] h-[40px] bg-white/10 rounded-lg animate-pulse" />
               )}
             </div>
           </div>
@@ -516,13 +635,13 @@ export default function LaunchPage() {
     <div className="max-w-6xl mx-auto">
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
         {/* Left Panel - Form */}
-        <div>
+        <div ref={leftPanelRef}>
           {/* Title */}
           <div className="mb-6">
-            <h2 className="text-2xl font-bold text-white mb-2">Tokenize Repository</h2>
+            <h2 className="text-4xl font-bold text-white mb-2">Tokenize Repository</h2>
             {launchMode === 'other-repo' ? (
               <p className="text-white/50 text-sm">
-                <span className="text-yellow-500">Escrow Mode</span> — Since you don&apos;t own this repo, creator fees will be held in escrow until the real owner verifies and claims them.
+                <span className="text-yellow-500">Escrow Mode</span> — Since you don&apos;t own this repo, creator fees will be held in escrow until the real owner {selectedEntity && <a href={`https://github.com/${selectedEntity.owner.login}`} target="_blank" rel="noopener noreferrer" className="text-[#00FF41] hover:underline">@{selectedEntity.owner.login}</a>} verifies and claims them.
               </p>
             ) : (
               <p className="text-white/50 text-sm">Set your token name and symbol</p>
@@ -530,26 +649,90 @@ export default function LaunchPage() {
           </div>
 
           {/* Selected Entity */}
-          {selectedEntity && (
+          {selectedEntity && repoOwnerProfile && (
             <div className="p-4 rounded-xl border border-white/10 bg-white/[0.02] mb-6">
-              <div className="flex items-center gap-3">
-                <img
-                  src={selectedEntity.owner.avatar_url}
-                  alt={selectedEntity.owner.login}
-                  className="w-10 h-10 rounded-full"
-                />
-                <div className="flex-1">
-                  <p className="font-semibold text-white">{selectedEntity.full_name}</p>
-                  <p className="text-xs text-white/40">{selectedEntity.stargazers_count.toLocaleString()} stars</p>
-                </div>
-                <a
-                  href={selectedEntity.html_url}
-                  target="_blank"
-                  rel="noopener noreferrer"
-                  className="text-white/30 hover:text-[#00FF41] transition-colors"
-                >
-                  <ExternalLink className="w-4 h-4" />
+              <div className="flex items-start gap-3">
+                <a href={repoOwnerProfile.html_url} target="_blank" rel="noopener noreferrer">
+                  <img
+                    src={repoOwnerProfile.avatar_url}
+                    alt={repoOwnerProfile.login}
+                    className="w-12 h-12 rounded-full hover:ring-2 hover:ring-[#00FF41]/50 transition-all"
+                  />
                 </a>
+                <div className="flex-1 min-w-0">
+                  <div className="flex items-center gap-2">
+                    <a 
+                      href={repoOwnerProfile.html_url} 
+                      target="_blank" 
+                      rel="noopener noreferrer"
+                      className="font-semibold text-white hover:text-[#00FF41] transition-colors"
+                    >
+                      {repoOwnerProfile.name || repoOwnerProfile.login}
+                    </a>
+                    <span className="text-white/30">/</span>
+                    <a 
+                      href={selectedEntity.html_url}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      className="font-semibold text-[#00FF41] hover:text-[#00FF41]/80 transition-colors truncate"
+                    >
+                      {selectedEntity.name}
+                    </a>
+                  </div>
+                  <p className="text-xs text-white/40">@{repoOwnerProfile.login} · {selectedEntity.stargazers_count.toLocaleString()} ⭐</p>
+                  
+                  {repoOwnerProfile.bio && (
+                    <p className="text-xs text-white/50 mt-1.5 line-clamp-2">{repoOwnerProfile.bio}</p>
+                  )}
+                  
+                  {/* Profile Details */}
+                  <div className="flex flex-wrap gap-x-3 gap-y-1 mt-2 text-[11px] text-white/40">
+                    {repoOwnerProfile.company && (
+                      <span className="flex items-center gap-1">
+                        <svg className="w-3 h-3" fill="currentColor" viewBox="0 0 16 16"><path fillRule="evenodd" d="M1.5 14.25c0 .138.112.25.25.25H4v-1.25a.75.75 0 01.75-.75h2.5a.75.75 0 01.75.75v1.25h2.25a.25.25 0 00.25-.25V1.75a.25.25 0 00-.25-.25h-8.5a.25.25 0 00-.25.25v12.5zM1.75 16A1.75 1.75 0 010 14.25V1.75C0 .784.784 0 1.75 0h8.5C11.216 0 12 .784 12 1.75v12.5c0 .085-.006.168-.018.25h2.268a.25.25 0 00.25-.25V8.285a.25.25 0 00-.111-.208l-1.055-.703a.75.75 0 11.832-1.248l1.055.703c.487.325.779.871.779 1.456v5.965A1.75 1.75 0 0114.25 16h-3.5a.75.75 0 01-.197-.026c-.099.017-.2.026-.303.026h-3a.75.75 0 01-.75-.75V14h-1v1.25a.75.75 0 01-.75.75h-3zM3 3.75A.75.75 0 013.75 3h.5a.75.75 0 010 1.5h-.5A.75.75 0 013 3.75zM3.75 6a.75.75 0 000 1.5h.5a.75.75 0 000-1.5h-.5zM3 9.75A.75.75 0 013.75 9h.5a.75.75 0 010 1.5h-.5A.75.75 0 013 9.75zM7.75 9a.75.75 0 000 1.5h.5a.75.75 0 000-1.5h-.5zM7 6.75A.75.75 0 017.75 6h.5a.75.75 0 010 1.5h-.5A.75.75 0 017 6.75zM7.75 3a.75.75 0 000 1.5h.5a.75.75 0 000-1.5h-.5z"/></svg>
+                        {repoOwnerProfile.company}
+                      </span>
+                    )}
+                    {repoOwnerProfile.location && (
+                      <span className="flex items-center gap-1">
+                        <svg className="w-3 h-3" fill="currentColor" viewBox="0 0 16 16"><path fillRule="evenodd" d="M11.536 3.464a5 5 0 010 7.072L8 14.07l-3.536-3.535a5 5 0 117.072-7.072v.001zm1.06 8.132a6.5 6.5 0 10-9.192 0l3.535 3.536a1.5 1.5 0 002.122 0l3.535-3.536zM8 9a2 2 0 100-4 2 2 0 000 4z"/></svg>
+                        {repoOwnerProfile.location}
+                      </span>
+                    )}
+                    {repoOwnerProfile.blog && (
+                      <a 
+                        href={repoOwnerProfile.blog.startsWith('http') ? repoOwnerProfile.blog : `https://${repoOwnerProfile.blog}`}
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        className="flex items-center gap-1 hover:text-[#00FF41] transition-colors"
+                      >
+                        <svg className="w-3 h-3" fill="currentColor" viewBox="0 0 16 16"><path fillRule="evenodd" d="M7.775 3.275a.75.75 0 001.06 1.06l1.25-1.25a2 2 0 112.83 2.83l-2.5 2.5a2 2 0 01-2.83 0 .75.75 0 00-1.06 1.06 3.5 3.5 0 004.95 0l2.5-2.5a3.5 3.5 0 00-4.95-4.95l-1.25 1.25zm-4.69 9.64a2 2 0 010-2.83l2.5-2.5a2 2 0 012.83 0 .75.75 0 001.06-1.06 3.5 3.5 0 00-4.95 0l-2.5 2.5a3.5 3.5 0 004.95 4.95l1.25-1.25a.75.75 0 00-1.06-1.06l-1.25 1.25a2 2 0 01-2.83 0z"/></svg>
+                        {repoOwnerProfile.blog.replace(/^https?:\/\//, '')}
+                      </a>
+                    )}
+                    {repoOwnerProfile.twitter_username && (
+                      <a 
+                        href={`https://twitter.com/${repoOwnerProfile.twitter_username}`}
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        className="flex items-center gap-1 hover:text-[#00FF41] transition-colors"
+                      >
+                        <svg className="w-3 h-3" fill="currentColor" viewBox="0 0 24 24"><path d="M18.244 2.25h3.308l-7.227 8.26 8.502 11.24H16.17l-5.214-6.817L4.99 21.75H1.68l7.73-8.835L1.254 2.25H8.08l4.713 6.231zm-1.161 17.52h1.833L7.084 4.126H5.117z"/></svg>
+                        @{repoOwnerProfile.twitter_username}
+                      </a>
+                    )}
+                  </div>
+                  
+                  {/* Followers/Repos */}
+                  <div className="flex gap-3 mt-2 text-[11px]">
+                    <span className="text-white/40">
+                      <span className="text-white/60 font-medium">{repoOwnerProfile.followers.toLocaleString()}</span> followers
+                    </span>
+                    <span className="text-white/40">
+                      <span className="text-white/60 font-medium">{repoOwnerProfile.public_repos.toLocaleString()}</span> repos
+                    </span>
+                  </div>
+                </div>
               </div>
             </div>
           )}
@@ -564,6 +747,16 @@ export default function LaunchPage() {
                 </div>
                 <div className="text-right">
                   <span className="text-xl font-semibold text-white">{creatorAllocation}%</span>
+                  {creatorAllocation > 0 && (
+                    <>
+                      <p className="text-xs text-[#00FF41] mt-0.5">
+                        ~{calculateSolCostForSupply(creatorAllocation).toFixed(4)} SOL
+                      </p>
+                      <p className="text-[10px] text-white/40">
+                        ≈ {formatUsd(solToUsd(calculateSolCostForSupply(creatorAllocation)))}
+                      </p>
+                    </>
+                  )}
                 </div>
               </div>
               
@@ -608,7 +801,7 @@ export default function LaunchPage() {
                   <button
                     key={pct}
                     onClick={() => setCreatorAllocation(pct)}
-                    className={`flex-1 py-1.5 rounded-lg text-xs font-medium transition-all ${
+                    className={`flex-1 py-2 rounded-lg text-xs font-semibold transition-all ${
                       creatorAllocation === pct
                         ? 'bg-white/20 text-white'
                         : 'bg-white/5 text-white/40 hover:bg-white/10'
@@ -720,7 +913,10 @@ export default function LaunchPage() {
         {/* Right Panel - Repo Info */}
         <div className="hidden lg:block">
           {selectedEntity && (
-            <div className="rounded-2xl border border-white/10 bg-white/[0.02] overflow-hidden relative">
+            <div 
+              className="rounded-2xl border border-white/10 bg-white/[0.02] overflow-hidden relative flex flex-col"
+              style={{ height: '945px' }}
+            >
               {/* External Link Button */}
               <a
                 href={selectedEntity.html_url}
@@ -733,7 +929,7 @@ export default function LaunchPage() {
               </a>
 
               {/* Repo Header */}
-              <div className="p-6 border-b border-white/10">
+              <div className="p-6 border-b border-white/10 flex-shrink-0">
                 <div className="flex items-center gap-4">
                   <img
                     src={selectedEntity.owner.avatar_url}
@@ -756,13 +952,48 @@ export default function LaunchPage() {
                     <GitFork className="w-4 h-4" />
                     <span>{selectedEntity.forks_count.toLocaleString()} forks</span>
                   </div>
-                  {selectedEntity.language && (
-                    <div className="flex items-center gap-1.5 text-white/50">
-                      <span className="w-3 h-3 rounded-full bg-[#00FF41]" />
-                      <span>{selectedEntity.language}</span>
-                    </div>
-                  )}
                 </div>
+
+                {/* Languages Bar */}
+                {Object.keys(repoLanguages).length > 0 && (
+                  <div className="mt-4">
+                    {/* Color bar */}
+                    <div className="h-2 rounded-full overflow-hidden flex">
+                      {(() => {
+                        const total = Object.values(repoLanguages).reduce((a, b) => a + b, 0);
+                        return Object.entries(repoLanguages).map(([lang, bytes]) => (
+                          <div
+                            key={lang}
+                            style={{
+                              width: `${(bytes / total) * 100}%`,
+                              backgroundColor: languageColors[lang] || '#8b8b8b',
+                            }}
+                            title={`${lang}: ${((bytes / total) * 100).toFixed(1)}%`}
+                          />
+                        ));
+                      })()}
+                    </div>
+                    {/* Language labels */}
+                    <div className="flex flex-wrap gap-3 mt-2">
+                      {(() => {
+                        const total = Object.values(repoLanguages).reduce((a, b) => a + b, 0);
+                        return Object.entries(repoLanguages)
+                          .sort(([, a], [, b]) => b - a)
+                          .slice(0, 5) // Show top 5 languages
+                          .map(([lang, bytes]) => (
+                            <div key={lang} className="flex items-center gap-1.5 text-xs text-white/50">
+                              <span
+                                className="w-2.5 h-2.5 rounded-full"
+                                style={{ backgroundColor: languageColors[lang] || '#8b8b8b' }}
+                              />
+                              <span>{lang}</span>
+                              <span className="text-white/30">{((bytes / total) * 100).toFixed(1)}%</span>
+                            </div>
+                          ));
+                      })()}
+                    </div>
+                  </div>
+                )}
 
                 {/* Description */}
                 {selectedEntity.description && (
@@ -771,8 +1002,8 @@ export default function LaunchPage() {
               </div>
 
               {/* README */}
-              <div className="p-6">
-                <h4 className="text-xs font-semibold text-white/40 uppercase tracking-wider mb-4">
+              <div className="p-6 flex-1 overflow-hidden flex flex-col min-h-0">
+                <h4 className="text-xs font-semibold text-white/40 uppercase tracking-wider mb-4 flex-shrink-0">
                   README
                 </h4>
                 
@@ -782,7 +1013,7 @@ export default function LaunchPage() {
                   </div>
                 ) : readmeContent ? (
                   <div 
-                    className="readme-content prose prose-invert prose-sm max-w-none max-h-[400px] overflow-y-auto pr-2 
+                    className="readme-content prose prose-invert prose-sm max-w-none overflow-y-auto pr-2 
                       prose-headings:text-white prose-headings:font-semibold prose-headings:border-b prose-headings:border-white/10 prose-headings:pb-2
                       prose-p:text-white/60 prose-a:text-[#00FF41] prose-strong:text-white
                       prose-code:text-[#00FF41] prose-code:bg-white/5 prose-code:px-1.5 prose-code:py-0.5 prose-code:rounded
@@ -968,7 +1199,7 @@ export default function LaunchPage() {
   }
 
   return (
-    <div className="min-h-screen bg-[#0a0a0a] pt-24 pb-12 px-6">
+    <div className="min-h-screen bg-[#0a0a0a] pt-12 pb-12 px-6">
       {/* Ambient glow */}
       <div className="fixed inset-0 overflow-hidden pointer-events-none">
         <div className="absolute top-1/4 right-1/4 w-[400px] h-[400px] bg-[#00FF41]/5 rounded-full blur-[100px]" />

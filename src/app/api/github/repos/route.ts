@@ -53,19 +53,19 @@ export async function GET() {
       (repo) => repo.permissions?.admin === true && !repo.private
     );
 
-    // Transform to our format
+    // Transform to match GitHub API format (same as search results)
     const formattedRepos = adminRepos.map((repo) => ({
-      id: String(repo.id),
+      id: repo.id,
       name: repo.name,
-      fullName: repo.full_name,
+      full_name: repo.full_name,
       description: repo.description,
-      url: repo.html_url,
-      stars: repo.stargazers_count,
-      forks: repo.forks_count,
+      html_url: repo.html_url,
+      stargazers_count: repo.stargazers_count,
+      forks_count: repo.forks_count,
       language: repo.language,
       owner: {
         login: repo.owner.login,
-        avatarUrl: repo.owner.avatar_url,
+        avatar_url: repo.owner.avatar_url,
       },
     }));
 

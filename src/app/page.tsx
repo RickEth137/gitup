@@ -37,10 +37,13 @@ export default function HomePage() {
       <section className="relative min-h-[90vh] flex items-center justify-center">
         <div className="max-w-5xl mx-auto px-6 py-20 text-center relative z-10">
           {/* Badge */}
-          <div className="inline-flex items-center gap-2 px-3 py-1.5 rounded-full border border-[#00FF41]/20 bg-[#00FF41]/5 mb-8">
-            <span className="w-1.5 h-1.5 rounded-full bg-[#00FF41] animate-pulse" />
+          <div className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full border border-[#00FF41]/20 bg-[#00FF41]/5 mb-8">
             <span className="text-xs text-[#00FF41]/80 font-medium tracking-wide uppercase">
-              Powered by pump.fun
+              Powered by
+            </span>
+            <img src="/Pumpfun.webp" alt="Pump.fun" className="w-5 h-5 rounded-full" />
+            <span className="text-xs text-[#00FF41]/80 font-medium tracking-wide uppercase">
+              pump.fun
             </span>
           </div>
 

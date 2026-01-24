@@ -452,6 +452,82 @@ export function isPumpFunAvailable(network: string): boolean {
   return network === 'mainnet-beta';
 }
 
+// ============================================================================
+// Bonding Curve Price Calculations
+// ============================================================================
+
+/**
+ * pump.fun bonding curve constants
+ * - Total supply: 1 billion tokens
+ * - Initial virtual SOL reserves: 30 SOL
+ * - Initial virtual token reserves: ~1,073,000,191 tokens
+ * - Available for bonding curve: ~800 million tokens (80% of supply)
+ * - Uses constant product formula: x * y = k
+ */
+const TOTAL_SUPPLY = 1_000_000_000; // 1 billion tokens
+const INITIAL_VIRTUAL_SOL = 30; // 30 SOL
+const INITIAL_VIRTUAL_TOKENS = 1_073_000_191; // Initial virtual token reserves
+const BONDING_CURVE_SUPPLY = 800_000_000; // 800M tokens available on curve
+
+/**
+ * Calculate SOL cost to buy a percentage of token supply at launch
+ * Uses the constant product AMM formula: (x + Δx)(y - Δy) = xy
+ * Where x = SOL reserves, y = token reserves
+ * 
+ * @param percentageOfSupply - Percentage of total supply to buy (0-100)
+ * @returns SOL amount needed to purchase that percentage
+ */
+export function calculateSolCostForSupply(percentageOfSupply: number): number {
+  if (percentageOfSupply <= 0) return 0;
+  if (percentageOfSupply > 10) percentageOfSupply = 10; // Cap at 10% max
+  
+  // Calculate tokens to buy (percentage of total supply)
+  const tokensToBuy = (percentageOfSupply / 100) * TOTAL_SUPPLY;
+  
+  // Initial state (at token launch)
+  const x = INITIAL_VIRTUAL_SOL; // Initial SOL reserves
+  const y = INITIAL_VIRTUAL_TOKENS; // Initial token reserves
+  const k = x * y; // Constant product
+  
+  // After buying tokens: (x + solIn) * (y - tokensToBuy) = k
+  // Solving for solIn: solIn = k / (y - tokensToBuy) - x
+  const newTokenReserves = y - tokensToBuy;
+  
+  if (newTokenReserves <= 0) {
+    // Can't buy more than available
+    return BONDING_CURVE_GRADUATION_SOL; // Return max (~85 SOL)
+  }
+  
+  const solCost = (k / newTokenReserves) - x;
+  
+  return Math.max(0, solCost);
+}
+
+/**
+ * Calculate what percentage of supply you get for a given SOL amount
+ * 
+ * @param solAmount - Amount of SOL to spend
+ * @returns Percentage of total supply received
+ */
+export function calculateSupplyForSol(solAmount: number): number {
+  if (solAmount <= 0) return 0;
+  
+  const x = INITIAL_VIRTUAL_SOL;
+  const y = INITIAL_VIRTUAL_TOKENS;
+  const k = x * y;
+  
+  // After buying: (x + solAmount) * newY = k
+  // newY = k / (x + solAmount)
+  // tokensBought = y - newY
+  const newTokenReserves = k / (x + solAmount);
+  const tokensBought = y - newTokenReserves;
+  
+  // Convert to percentage of total supply
+  const percentage = (tokensBought / TOTAL_SUPPLY) * 100;
+  
+  return Math.min(percentage, 80); // Cap at 80% (bonding curve max)
+}
+
 /**
  * Estimate the cost of creating a token
  */
@@ -487,3 +563,4 @@ export function calculatePrice(bondingCurve: BondingCurveData): number {
   if (bondingCurve.virtualTokenReserves === 0) return 0;
   return bondingCurve.virtualSolReserves / bondingCurve.virtualTokenReserves;
 }
+
