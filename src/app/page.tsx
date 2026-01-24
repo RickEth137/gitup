@@ -14,12 +14,69 @@ const GitLabIcon = ({ className }: { className?: string }) => (
   </svg>
 );
 
+// Star Particles Background Component
+function StarParticles() {
+  return (
+    <div className="fixed inset-0 overflow-hidden pointer-events-none z-0">
+      {/* Generate 50 stars with random positions and animations */}
+      {[...Array(50)].map((_, i) => (
+        <div
+          key={i}
+          className="absolute rounded-full bg-white animate-pulse"
+          style={{
+            left: `${Math.random() * 100}%`,
+            top: `${Math.random() * 100}%`,
+            width: `${Math.random() * 2 + 1}px`,
+            height: `${Math.random() * 2 + 1}px`,
+            opacity: Math.random() * 0.5 + 0.1,
+            animationDuration: `${Math.random() * 3 + 2}s`,
+            animationDelay: `${Math.random() * 2}s`,
+          }}
+        />
+      ))}
+    </div>
+  );
+}
+
+// Character Video Component - LOCKED POSITION (only in hero section)
+function CharacterVideo() {
+  return (
+    <div
+      className="absolute z-40 pointer-events-none"
+      style={{
+        left: '15.9%',
+        top: '61.4%',
+        transform: 'translate(-50%, -50%)',
+        width: '82vw',
+      }}
+    >
+      <video
+        autoPlay
+        loop
+        muted
+        playsInline
+        className="w-full h-auto"
+        style={{
+          maskImage: 'linear-gradient(to bottom, black 50%, transparent 95%)',
+          WebkitMaskImage: 'linear-gradient(to bottom, black 50%, transparent 95%)',
+        }}
+      >
+        <source src="/Hi Alpha.webm" type="video/webm" />
+        <source src="/Hi Alpha.mov" type="video/quicktime" />
+      </video>
+    </div>
+  );
+}
+
 export default function HomePage() {
   const { data: session } = useSession();
   const { connected } = useWallet();
 
   return (
     <div className="min-h-screen bg-[#0a0a0a]">
+      {/* Star Particles Background */}
+      <StarParticles />
+      
       {/* Ambient glow effects */}
       <div className="fixed inset-0 overflow-hidden pointer-events-none">
         <div className="absolute top-1/4 left-1/4 w-[600px] h-[600px] bg-[#00FF41]/5 rounded-full blur-[120px]" />
@@ -27,7 +84,9 @@ export default function HomePage() {
       </div>
 
       {/* Hero Section */}
-      <section className="relative min-h-[90vh] flex items-center justify-center">
+      <section className="relative min-h-[90vh] flex items-center justify-center overflow-hidden">
+        {/* Character Video - inside hero so it scrolls away */}
+        <CharacterVideo />
         <div className="max-w-5xl mx-auto px-6 py-20 text-center relative z-10">
           {/* Badge */}
           <div className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full border border-[#00FF41]/20 bg-[#00FF41]/5 mb-8">

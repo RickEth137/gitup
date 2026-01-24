@@ -11,6 +11,59 @@ import { useSolPrice } from '@/lib/useSolPrice';
 type LaunchMode = 'select' | 'own-repo' | 'other-repo' | 'own-gitlab' | 'other-gitlab' | 'twitter' | 'telegram' | 'instagram' | 'facebook';
 type Step = 'mode' | 'connect' | 'search' | 'customize' | 'launch' | 'success';
 
+// Star Particles Background Component
+function StarParticles() {
+  return (
+    <div className="fixed inset-0 overflow-hidden pointer-events-none z-0">
+      {[...Array(50)].map((_, i) => (
+        <div
+          key={i}
+          className="absolute rounded-full bg-white animate-pulse"
+          style={{
+            left: `${Math.random() * 100}%`,
+            top: `${Math.random() * 100}%`,
+            width: `${Math.random() * 2 + 1}px`,
+            height: `${Math.random() * 2 + 1}px`,
+            opacity: Math.random() * 0.5 + 0.1,
+            animationDuration: `${Math.random() * 3 + 2}s`,
+            animationDelay: `${Math.random() * 2}s`,
+          }}
+        />
+      ))}
+    </div>
+  );
+}
+
+// Character Video Component - LOCKED POSITION
+function LaunchCharacterVideo() {
+  return (
+    <div
+      className="fixed z-50 pointer-events-none"
+      style={{
+        left: '80.3%',
+        top: '59.5%',
+        transform: 'translate(-50%, -50%)',
+        width: '75vw',
+      }}
+    >
+      <video
+        autoPlay
+        loop
+        muted
+        playsInline
+        className="w-full h-auto"
+        style={{
+          maskImage: 'linear-gradient(to bottom, black 0%, black 85%, transparent 100%)',
+          WebkitMaskImage: 'linear-gradient(to bottom, black 0%, black 85%, transparent 100%)',
+        }}
+      >
+        <source src="/Pointing.webm" type="video/webm" />
+        <source src="/Pointing.mov" type="video/quicktime" />
+      </video>
+    </div>
+  );
+}
+
 // GitLab icon component
 const GitLabIcon = ({ className }: { className?: string }) => (
   <svg className={className} viewBox="0 0 24 24" fill="currentColor">
@@ -1285,6 +1338,12 @@ export default function LaunchPage() {
 
   return (
     <div className="min-h-screen bg-[#0a0a0a] pt-12 pb-12 px-6">
+      {/* Star Particles */}
+      <StarParticles />
+      
+      {/* Character Video */}
+      <LaunchCharacterVideo />
+      
       {/* Ambient glow */}
       <div className="fixed inset-0 overflow-hidden pointer-events-none">
         <div className="absolute top-1/4 right-1/4 w-[400px] h-[400px] bg-[#00FF41]/5 rounded-full blur-[100px]" />
