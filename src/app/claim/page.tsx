@@ -14,7 +14,7 @@ const GitLabIcon = ({ className }: { className?: string }) => (
 
 interface ClaimableToken {
   id: string;
-  entityType: 'github' | 'twitter' | 'gitlab' | 'telegram' | 'instagram' | 'facebook';
+  entityType: 'github' | 'gitlab';
   entityHandle: string;
   entityName: string;
   tokenName: string;
@@ -234,16 +234,8 @@ function TokenCard({
     switch (token.entityType) {
       case 'github':
         return <Github className="w-6 h-6 text-white/60" />;
-      case 'twitter':
-        return <Twitter className="w-6 h-6 text-white/60" />;
       case 'gitlab':
         return <GitLabIcon className="w-6 h-6 text-[#FC6D26]" />;
-      case 'telegram':
-        return <Send className="w-6 h-6 text-[#0088cc]" />;
-      case 'instagram':
-        return <Instagram className="w-6 h-6 text-[#E4405F]" />;
-      case 'facebook':
-        return <Facebook className="w-6 h-6 text-[#1877F2]" />;
       default:
         return <Github className="w-6 h-6 text-white/60" />;
     }
@@ -253,16 +245,8 @@ function TokenCard({
     switch (token.entityType) {
       case 'github':
         return `https://github.com/${token.entityHandle}`;
-      case 'twitter':
-        return `https://x.com/${token.entityHandle.replace('@', '')}`;
       case 'gitlab':
         return `https://gitlab.com/${token.entityHandle}`;
-      case 'telegram':
-        return `https://t.me/${token.entityHandle.replace('@', '')}`;
-      case 'instagram':
-        return `https://instagram.com/${token.entityHandle.replace('@', '')}`;
-      case 'facebook':
-        return `https://facebook.com/${token.entityHandle}`;
       default:
         return '#';
     }
