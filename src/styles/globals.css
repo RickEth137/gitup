@@ -340,6 +340,38 @@ body {
   animation: pulse-neon 2s ease-in-out infinite;
 }
 
+/* Smooth star twinkle animation */
+@keyframes star-twinkle {
+  0%, 100% {
+    opacity: 0.15;
+    transform: scale(1);
+  }
+  50% {
+    opacity: 0.6;
+    transform: scale(1.2);
+  }
+}
+
+.star-twinkle {
+  animation: star-twinkle ease-in-out infinite;
+}
+
+/* Subtle pulse for character "hover" effect */
+@keyframes pulse-subtle {
+  0%, 100% {
+    box-shadow: 0 0 30px rgba(255, 255, 255, 0.08);
+    border-color: rgba(255, 255, 255, 0.2);
+  }
+  50% {
+    box-shadow: 0 0 40px rgba(255, 255, 255, 0.12);
+    border-color: rgba(255, 255, 255, 0.3);
+  }
+}
+
+.animate-pulse-subtle {
+  animation: pulse-subtle 2s ease-in-out infinite;
+}
+
 /* =============================================
    Legacy classes (for compatibility)
    ============================================= */
@@ -513,6 +545,15 @@ body {
   margin: 0.25em 0;
   display: inline-block;
   vertical-align: middle;
+  background: rgba(255,255,255,0.05);
+}
+
+/* Handle broken images gracefully */
+.readme-content img[alt]::after {
+  content: attr(alt);
+  display: block;
+  font-size: 0.75em;
+  color: rgba(255,255,255,0.4);
 }
 
 /* GitHub-style badges - display inline */

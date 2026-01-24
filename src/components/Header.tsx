@@ -6,7 +6,7 @@ import { signIn, signOut, useSession } from 'next-auth/react';
 import Image from 'next/image';
 import Link from 'next/link';
 import { useState, useEffect } from 'react';
-import { Github, LogOut, Rocket, Gift, User } from 'lucide-react';
+import { Github, LogOut, GitBranch, Gift, User } from 'lucide-react';
 
 export function Header() {
   const { data: session, status } = useSession();
@@ -25,7 +25,7 @@ export function Header() {
           {/* Logo */}
           <Link href="/" className="flex items-center gap-2 group">
             <div className="w-8 h-8 rounded-lg bg-[#00FF41] flex items-center justify-center group-hover:shadow-[0_0_20px_rgba(0,255,65,0.5)] transition-shadow">
-              <Rocket className="w-4 h-4 text-black" />
+              <GitBranch className="w-4 h-4 text-black" />
             </div>
             <span className="text-lg font-bold text-white">GitUp</span>
             <span className="text-[#00FF41]">.fun</span>
@@ -50,6 +50,12 @@ export function Header() {
               className="px-4 py-2 text-white/50 hover:text-[#00FF41] transition-colors text-sm font-medium"
             >
               Explore
+            </Link>
+            <Link
+              href="/docs"
+              className="px-4 py-2 text-white/50 hover:text-[#00FF41] transition-colors text-sm font-medium"
+            >
+              Docs
             </Link>
             {mounted && connected && publicKey && (
               <Link

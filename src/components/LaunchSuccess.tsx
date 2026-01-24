@@ -1,6 +1,6 @@
 'use client';
 
-import { ExternalLink, Copy, CheckCircle, Rocket, Twitter, Share2 } from 'lucide-react';
+import { ExternalLink, Copy, CheckCircle, GitBranch, Twitter, Share2 } from 'lucide-react';
 import { useLaunchStore } from '@/store/launchStore';
 import { getPumpFunUrl } from '@/lib/pumpfun';
 import { useState } from 'react';
@@ -56,7 +56,7 @@ export function LaunchSuccess() {
             />
           ) : (
             <div className="w-14 h-14 rounded-full bg-surface flex items-center justify-center border border-border">
-              <Rocket className="w-6 h-6 text-secondary" />
+              <GitBranch className="w-6 h-6 text-secondary" />
             </div>
           )}
           <div className="text-left">
@@ -117,7 +117,7 @@ export function LaunchSuccess() {
           rel="noopener noreferrer"
           className="btn-primary flex items-center justify-center gap-2 flex-1"
         >
-          <Rocket className="w-4 h-4" />
+          <GitBranch className="w-4 h-4" />
           Trade on pump.fun
         </a>
 

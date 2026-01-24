@@ -1,5 +1,6 @@
 'use client';
 
+import { useMemo } from 'react';
 import Link from 'next/link';
 import { useSession } from 'next-auth/react';
 import { useWallet } from '@solana/wallet-adapter-react';
@@ -16,21 +17,33 @@ const GitLabIcon = ({ className }: { className?: string }) => (
 
 // Star Particles Background Component
 function StarParticles() {
+  // Generate stable random values only once
+  const stars = useMemo(() => 
+    [...Array(60)].map((_, i) => ({
+      id: i,
+      left: (i * 17 + 7) % 100, // Pseudo-random but stable distribution
+      top: (i * 23 + 13) % 100,
+      size: 1 + (i % 3) * 0.5,
+      opacity: 0.15 + (i % 5) * 0.1,
+      duration: 3 + (i % 4),
+      delay: (i % 6) * 0.5,
+    }))
+  , []);
+
   return (
     <div className="fixed inset-0 overflow-hidden pointer-events-none z-0">
-      {/* Generate 50 stars with random positions and animations */}
-      {[...Array(50)].map((_, i) => (
+      {stars.map((star) => (
         <div
-          key={i}
-          className="absolute rounded-full bg-white animate-pulse"
+          key={star.id}
+          className="absolute rounded-full bg-white star-twinkle"
           style={{
-            left: `${Math.random() * 100}%`,
-            top: `${Math.random() * 100}%`,
-            width: `${Math.random() * 2 + 1}px`,
-            height: `${Math.random() * 2 + 1}px`,
-            opacity: Math.random() * 0.5 + 0.1,
-            animationDuration: `${Math.random() * 3 + 2}s`,
-            animationDelay: `${Math.random() * 2}s`,
+            left: `${star.left}%`,
+            top: `${star.top}%`,
+            width: `${star.size}px`,
+            height: `${star.size}px`,
+            opacity: star.opacity,
+            animationDuration: `${star.duration}s`,
+            animationDelay: `${star.delay}s`,
           }}
         />
       ))}
@@ -105,11 +118,11 @@ export default function HomePage() {
             <span className="text-[#00FF41]">Repositories</span>
           </h1>
 
-          <p className="text-lg md:text-xl text-white/50 max-w-2xl mx-auto mb-4 font-light">
+          <p className="text-lg md:text-xl text-white/80 max-w-2xl mx-auto mb-4 font-light">
             Fund your development by tokenizing your repo, or support your favorite dev by tokenizing theirs.
           </p>
           
-          <p className="text-sm text-white/30 max-w-xl mx-auto mb-12">
+          <p className="text-sm text-white/70 max-w-xl mx-auto mb-12">
             Anyone can launch. Real owners verify & claim creator fees forever.
           </p>
 
@@ -170,7 +183,7 @@ export default function HomePage() {
             <h2 className="text-3xl md:text-4xl font-bold text-white mb-4">
               How It Works
             </h2>
-            <p className="text-white/40">Three simple steps</p>
+            <p className="text-white/70">Three simple steps</p>
           </div>
 
           <div className="grid md:grid-cols-3 gap-8">
@@ -182,8 +195,8 @@ export default function HomePage() {
                   <span className="text-[#00FF41] font-mono font-bold">01</span>
                 </div>
                 <h3 className="text-xl font-semibold text-white mb-3">Find & Launch</h3>
-                <p className="text-white/40 text-sm leading-relaxed">
-                  Search any GitHub or GitLab repo. Launch a token on pump.fun in seconds — even if you&apos;re not the owner.
+                <p className="text-white/70 text-sm leading-relaxed">
+                  Search any GitHub or GitLab repo. Tokenize it on pump.fun in seconds — even if you&apos;re not the owner.
                 </p>
               </div>
             </div>
@@ -196,7 +209,7 @@ export default function HomePage() {
                   <span className="text-[#00FF41] font-mono font-bold">02</span>
                 </div>
                 <h3 className="text-xl font-semibold text-white mb-3">Fees Escrow</h3>
-                <p className="text-white/40 text-sm leading-relaxed">
+                <p className="text-white/70 text-sm leading-relaxed">
                   Creator fees accumulate in a secure escrow wallet. They wait there until the real owner shows up.
                 </p>
               </div>
@@ -210,7 +223,7 @@ export default function HomePage() {
                   <span className="text-[#00FF41] font-mono font-bold">03</span>
                 </div>
                 <h3 className="text-xl font-semibold text-white mb-3">Verify & Claim</h3>
-                <p className="text-white/40 text-sm leading-relaxed">
+                <p className="text-white/70 text-sm leading-relaxed">
                   Repo owner? Verify via GitHub or GitLab OAuth. Claim all accumulated fees instantly.
                 </p>
               </div>
@@ -221,40 +234,81 @@ export default function HomePage() {
 
       {/* Supported Platforms */}
       <section className="relative py-24 border-t border-white/5">
-        <div className="max-w-5xl mx-auto px-6">
-          <div className="text-center mb-12">
-            <h2 className="text-2xl font-bold text-white mb-2">Supported Platforms</h2>
-            <p className="text-white/40 text-sm">Tokenize creators from these platforms</p>
+        <div className="max-w-6xl mx-auto px-6">
+          <div className="text-center mb-8">
+            <h2 className="text-3xl md:text-4xl font-bold text-white mb-4">Supported Platforms</h2>
+            <p className="text-white/70">Tokenize creators from these platforms</p>
           </div>
 
-          <div className="grid grid-cols-2 gap-4 max-w-lg mx-auto">
-            {/* GitHub */}
-            <div className="group relative p-5 rounded-2xl border border-[#00FF41]/20 bg-[#00FF41]/5 transition-all">
-              <div className="flex flex-col items-center text-center">
-                <div className="w-14 h-14 rounded-xl bg-[#00FF41]/10 flex items-center justify-center mb-3">
-                  <Github className="w-7 h-7 text-[#00FF41]" />
-                </div>
-                <h3 className="font-semibold text-white">GitHub</h3>
-                <p className="text-xs text-white/40 mt-1">Public repositories</p>
-                <div className="mt-3 flex items-center gap-1.5 text-[10px] text-[#00FF41]">
-                  <span className="w-1.5 h-1.5 rounded-full bg-[#00FF41]" />
-                  Live Now
-                </div>
+          {/* Video with hand-drawn annotations */}
+          <div className="flex justify-center">
+            <div className="relative w-full max-w-5xl">
+              <video
+                autoPlay
+                loop
+                muted
+                playsInline
+                className="w-full rounded-2xl"
+                style={{
+                  maskImage: 'linear-gradient(to bottom, black 50%, transparent 95%)',
+                  WebkitMaskImage: 'linear-gradient(to bottom, black 50%, transparent 95%)',
+                }}
+              >
+                <source src="/Supported Platforms.webm" type="video/webm" />
+              </video>
+              
+              {/* GitHub annotation - left side */}
+              <div className="absolute left-[12%] top-[35%] pointer-events-none hidden md:block">
+                <p 
+                  className="text-white text-2xl lg:text-3xl mb-1"
+                  style={{ fontFamily: "'Caveat', cursive" }}
+                >
+                  Github
+                </p>
+                <svg width="50" height="40" viewBox="0 0 50 40" className="text-white ml-6">
+                  <path 
+                    d="M 5 5 Q 20 15, 30 25 Q 35 30, 40 35" 
+                    fill="none" 
+                    stroke="currentColor" 
+                    strokeWidth="2" 
+                    strokeLinecap="round"
+                  />
+                  <path 
+                    d="M 32 28 L 42 36 L 38 26" 
+                    fill="none" 
+                    stroke="currentColor" 
+                    strokeWidth="2" 
+                    strokeLinecap="round"
+                    strokeLinejoin="round"
+                  />
+                </svg>
               </div>
-            </div>
-
-            {/* GitLab */}
-            <div className="group relative p-5 rounded-2xl border border-white/5 bg-white/[0.02] hover:border-[#FC6D26]/20 transition-all">
-              <div className="flex flex-col items-center text-center opacity-60">
-                <div className="w-14 h-14 rounded-xl bg-[#FC6D26]/10 flex items-center justify-center mb-3">
-                  <GitLabIcon className="w-7 h-7 text-[#FC6D26]" />
-                </div>
-                <h3 className="font-semibold text-white">GitLab</h3>
-                <p className="text-xs text-white/40 mt-1">Projects & repos</p>
-                <div className="mt-3 flex items-center gap-1.5 text-[10px] text-white/30">
-                  <span className="w-1.5 h-1.5 rounded-full bg-white/30" />
-                  Coming Soon
-                </div>
+              
+              {/* GitLab annotation - right side */}
+              <div className="absolute right-[12%] top-[25%] pointer-events-none hidden md:block">
+                <p 
+                  className="text-white text-2xl lg:text-3xl mb-1"
+                  style={{ fontFamily: "'Caveat', cursive" }}
+                >
+                  GitLab
+                </p>
+                <svg width="50" height="50" viewBox="0 0 50 50" className="text-white -ml-2">
+                  <path 
+                    d="M 45 5 Q 30 15, 20 30 Q 15 38, 10 45" 
+                    fill="none" 
+                    stroke="currentColor" 
+                    strokeWidth="2" 
+                    strokeLinecap="round"
+                  />
+                  <path 
+                    d="M 18 38 L 8 47 L 20 45" 
+                    fill="none" 
+                    stroke="currentColor" 
+                    strokeWidth="2" 
+                    strokeLinecap="round"
+                    strokeLinejoin="round"
+                  />
+                </svg>
               </div>
             </div>
           </div>
@@ -262,13 +316,13 @@ export default function HomePage() {
       </section>
 
       {/* CTA Section */}
-      <section className="relative py-24">
+      <section className="relative pb-24">
         <div className="max-w-3xl mx-auto px-6 text-center">
           <div className="relative p-12 rounded-3xl border border-[#00FF41]/10 bg-gradient-to-b from-[#00FF41]/5 to-transparent">
             <h2 className="text-3xl md:text-4xl font-bold text-white mb-4">
               Ready to launch?
             </h2>
-            <p className="text-white/40 mb-8 max-w-md mx-auto">
+            <p className="text-white/70 mb-8 max-w-md mx-auto">
               Be the first to tokenize your favorite repos and creators. Earn fees or claim what&apos;s yours.
             </p>
             <div className="flex flex-col sm:flex-row gap-4 justify-center">

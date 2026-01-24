@@ -4,7 +4,7 @@ import { useState, useRef, useEffect, useMemo } from 'react';
 import { useSession, signIn } from 'next-auth/react';
 import { useWallet, useConnection } from '@solana/wallet-adapter-react';
 import { WalletMultiButton } from '@solana/wallet-adapter-react-ui';
-import { Github, Twitter, ArrowRight, ArrowLeft, Wallet, CheckCircle, AlertCircle, Search, Star, GitFork, ExternalLink, Send, Instagram, Facebook, ImageIcon, MapPin, Building2, Link as LinkIcon, Users, Calendar, Gift, Rocket } from 'lucide-react';
+import { Github, Twitter, ArrowRight, ArrowLeft, Wallet, CheckCircle, AlertCircle, Search, Star, GitFork, ExternalLink, Send, Instagram, Facebook, ImageIcon, MapPin, Building2, Link as LinkIcon, Users, Calendar, Gift, GitBranch } from 'lucide-react';
 import { calculateSolCostForSupply, createToken, CreateTokenResult } from '@/lib/pumpfun';
 import { useSolPrice } from '@/lib/useSolPrice';
 
@@ -13,20 +13,33 @@ type Step = 'mode' | 'connect' | 'search' | 'customize' | 'launch' | 'success';
 
 // Star Particles Background Component
 function StarParticles() {
+  // Generate stable random values only once
+  const stars = useMemo(() => 
+    [...Array(60)].map((_, i) => ({
+      id: i,
+      left: (i * 17 + 7) % 100, // Pseudo-random but stable distribution
+      top: (i * 23 + 13) % 100,
+      size: 1 + (i % 3) * 0.5,
+      opacity: 0.15 + (i % 5) * 0.1,
+      duration: 3 + (i % 4),
+      delay: (i % 6) * 0.5,
+    }))
+  , []);
+
   return (
     <div className="fixed inset-0 overflow-hidden pointer-events-none z-0">
-      {[...Array(50)].map((_, i) => (
+      {stars.map((star) => (
         <div
-          key={i}
-          className="absolute rounded-full bg-white animate-pulse"
+          key={star.id}
+          className="absolute rounded-full bg-white star-twinkle"
           style={{
-            left: `${Math.random() * 100}%`,
-            top: `${Math.random() * 100}%`,
-            width: `${Math.random() * 2 + 1}px`,
-            height: `${Math.random() * 2 + 1}px`,
-            opacity: Math.random() * 0.5 + 0.1,
-            animationDuration: `${Math.random() * 3 + 2}s`,
-            animationDelay: `${Math.random() * 2}s`,
+            left: `${star.left}%`,
+            top: `${star.top}%`,
+            width: `${star.size}px`,
+            height: `${star.size}px`,
+            opacity: star.opacity,
+            animationDuration: `${star.duration}s`,
+            animationDelay: `${star.delay}s`,
           }}
         />
       ))}
@@ -35,7 +48,7 @@ function StarParticles() {
 }
 
 // Character Video Component - LOCKED POSITION
-function LaunchCharacterVideo() {
+function LaunchCharacterVideo({ videoRef }: { videoRef?: React.RefObject<HTMLVideoElement | null> }) {
   return (
     <div
       className="fixed z-50 pointer-events-none"
@@ -47,6 +60,7 @@ function LaunchCharacterVideo() {
       }}
     >
       <video
+        ref={videoRef}
         autoPlay
         loop
         muted
@@ -138,10 +152,38 @@ export default function LaunchPage() {
   const [mounted, setMounted] = useState(false);
   const leftPanelRef = useRef<HTMLDivElement>(null);
   
+  // Animation timing - synced to video (hand hovers button twice per loop)
+  const hover1Start = 21;
+  const hover1End = 40;
+  const hover2Start = 74;
+  const hover2End = 91;
+  const [isHovered, setIsHovered] = useState(false);
+  const videoRef = useRef<HTMLVideoElement | null>(null);
+  
   // Fix hydration mismatch
   useEffect(() => {
     setMounted(true);
   }, []);
+  
+  // Sync video playback with hover state - supports two hover periods
+  useEffect(() => {
+    if (!mounted) return;
+    
+    const video = videoRef.current;
+    if (!video) return;
+    
+    const checkHoverTiming = () => {
+      if (video.duration) {
+        const progress = (video.currentTime / video.duration) * 100;
+        const inHover1 = progress >= hover1Start && progress <= hover1End;
+        const inHover2 = progress >= hover2Start && progress <= hover2End;
+        setIsHovered(inHover1 || inHover2);
+      }
+    };
+    
+    video.addEventListener('timeupdate', checkHoverTiming);
+    return () => video.removeEventListener('timeupdate', checkHoverTiming);
+  }, [mounted]);
   
   // GitHub language colors (subset of most common)
   const languageColors: Record<string, string> = {
@@ -305,7 +347,27 @@ export default function LaunchPage() {
       });
       
       if (response.ok) {
-        const html = await response.text();
+        let html = await response.text();
+        
+        // Fix relative image paths - convert to raw GitHub URLs
+        // Handle src="/path" or src="./path" or src="path" (relative paths)
+        html = html.replace(
+          /src="(?!https?:\/\/|data:)([^"]+)"/g,
+          `src="https://raw.githubusercontent.com/${owner}/${repo}/HEAD/$1"`
+        );
+        
+        // Also fix href for images that are links
+        html = html.replace(
+          /href="(?!https?:\/\/|#|mailto:)([^"]+\.(png|jpg|jpeg|gif|svg|webp))"/gi,
+          `href="https://raw.githubusercontent.com/${owner}/${repo}/HEAD/$1"`
+        );
+        
+        // Fix repository-relative URLs (starting with /)
+        html = html.replace(
+          /src="https:\/\/raw\.githubusercontent\.com\/[^/]+\/[^/]+\/HEAD\/\/+/g,
+          `src="https://raw.githubusercontent.com/${owner}/${repo}/HEAD/`
+        );
+        
         setReadmeContent(html);
       }
     } catch (error) {
@@ -465,7 +527,7 @@ export default function LaunchPage() {
   const renderModeSelection = () => (
     <div className="max-w-3xl mx-auto">
       <div className="text-center mb-10">
-        <h1 className="text-3xl font-bold text-white mb-3">Launch a Token</h1>
+        <h1 className="text-3xl font-bold text-white mb-3">Tokenize Your Repo</h1>
         <p className="text-white/50">What would you like to tokenize?</p>
       </div>
 
@@ -474,49 +536,53 @@ export default function LaunchPage() {
         {/* GitHub - My Repo */}
         <button
           onClick={() => handleModeSelect('own-repo')}
-          className="p-8 rounded-2xl border border-[#00FF41]/30 bg-[#00FF41]/5 hover:bg-[#00FF41]/10 hover:border-[#00FF41]/50 transition-all duration-300 ease-out text-center group hover:scale-[1.02] hover:shadow-[0_0_30px_rgba(0,255,65,0.15)]"
+          className="p-8 rounded-2xl border border-white/10 bg-white/[0.02] hover:bg-[#00FF41]/10 hover:border-[#00FF41]/50 transition-all duration-300 ease-out text-center group hover:scale-[1.02] hover:shadow-[0_0_30px_rgba(0,255,65,0.15)]"
         >
-          <div className="w-16 h-16 mx-auto rounded-xl bg-[#00FF41]/10 flex items-center justify-center mb-4 transition-transform duration-300 group-hover:-translate-y-1">
-            <Github className="w-8 h-8 text-[#00FF41] transition-transform duration-300 group-hover:scale-110" />
+          <div className="w-16 h-16 mx-auto rounded-xl bg-white/5 group-hover:bg-[#00FF41]/10 flex items-center justify-center mb-4 transition-all duration-300 group-hover:-translate-y-1">
+            <Github className="w-8 h-8 text-white/60 group-hover:text-[#00FF41] transition-all duration-300 group-hover:scale-110" />
           </div>
           <p className="font-semibold text-white">My GitHub</p>
-          <p className="text-xs text-[#00FF41] mt-1">Direct fees</p>
+          <p className="text-xs text-white/40 group-hover:text-[#00FF41] mt-1 transition-colors duration-300">Direct fees</p>
         </button>
 
         {/* GitHub - Other's Repo */}
         <button
           onClick={() => handleModeSelect('other-repo')}
-          className="p-8 rounded-2xl border border-white/10 bg-white/[0.02] hover:bg-white/[0.05] hover:border-white/20 transition-all duration-300 ease-out text-center group hover:scale-[1.02] hover:shadow-[0_0_30px_rgba(255,255,255,0.05)]"
+          className="p-8 rounded-2xl border border-white/10 bg-white/[0.02] hover:bg-[#00FF41]/10 hover:border-[#00FF41]/50 transition-all duration-300 ease-out text-center group hover:scale-[1.02] hover:shadow-[0_0_30px_rgba(0,255,65,0.15)]"
         >
-          <div className="w-16 h-16 mx-auto rounded-xl bg-white/5 flex items-center justify-center mb-4 transition-transform duration-300 group-hover:-translate-y-1">
-            <Github className="w-8 h-8 text-white/60 transition-transform duration-300 group-hover:scale-110" />
+          <div className="w-16 h-16 mx-auto rounded-xl bg-white/5 group-hover:bg-[#00FF41]/10 flex items-center justify-center mb-4 transition-all duration-300 group-hover:-translate-y-1">
+            <Github className="w-8 h-8 text-white/60 group-hover:text-[#00FF41] transition-all duration-300 group-hover:scale-110" />
           </div>
           <p className="font-semibold text-white">Any GitHub</p>
-          <p className="text-xs text-white/40 mt-1">Escrow</p>
+          <p className="text-xs text-white/40 group-hover:text-[#00FF41] mt-1 transition-colors duration-300">Escrow</p>
         </button>
 
         {/* GitLab - My Repo */}
         <button
           onClick={() => handleModeSelect('own-gitlab')}
-          className="p-8 rounded-2xl border border-[#FC6D26]/30 bg-[#FC6D26]/5 hover:bg-[#FC6D26]/10 hover:border-[#FC6D26]/50 transition-all duration-300 ease-out text-center group hover:scale-[1.02] hover:shadow-[0_0_30px_rgba(252,109,38,0.15)]"
+          className="p-8 rounded-2xl border border-white/10 bg-white/[0.02] hover:bg-[#FC6D26]/10 hover:border-[#FC6D26]/50 transition-all duration-300 ease-out text-center group hover:scale-[1.02] hover:shadow-[0_0_30px_rgba(252,109,38,0.15)]"
         >
-          <div className="w-16 h-16 mx-auto rounded-xl bg-[#FC6D26]/10 flex items-center justify-center mb-4 transition-transform duration-300 group-hover:-translate-y-1">
-            <GitLabIcon className="w-8 h-8 text-[#FC6D26] transition-transform duration-300 group-hover:scale-110" />
+          <div className="w-16 h-16 mx-auto rounded-xl bg-white/5 group-hover:bg-[#FC6D26]/10 flex items-center justify-center mb-4 transition-all duration-300 group-hover:-translate-y-1">
+            <GitLabIcon className="w-8 h-8 text-white/60 group-hover:text-[#FC6D26] transition-all duration-300 group-hover:scale-110" />
           </div>
           <p className="font-semibold text-white">My GitLab</p>
-          <p className="text-xs text-[#FC6D26] mt-1">Direct fees</p>
+          <p className="text-xs text-white/40 group-hover:text-[#FC6D26] mt-1 transition-colors duration-300">Direct fees</p>
         </button>
 
-        {/* GitLab - Other's Repo */}
+        {/* GitLab - Other's Repo - Character "hovers" this one synced to video */}
         <button
           onClick={() => handleModeSelect('other-gitlab')}
-          className="p-8 rounded-2xl border border-white/10 bg-white/[0.02] hover:bg-white/[0.05] hover:border-white/20 transition-all duration-300 ease-out text-center group hover:scale-[1.02] hover:shadow-[0_0_30px_rgba(255,255,255,0.05)]"
+          className={`p-8 rounded-2xl border transition-all duration-300 ease-out text-center group hover:bg-[#FC6D26]/10 hover:border-[#FC6D26]/50 hover:scale-[1.02] hover:shadow-[0_0_30px_rgba(252,109,38,0.15)] ${
+            isHovered 
+              ? 'border-[#FC6D26]/50 bg-[#FC6D26]/10 scale-[1.02] shadow-[0_0_30px_rgba(252,109,38,0.15)]' 
+              : 'border-white/10 bg-white/[0.02]'
+          }`}
         >
-          <div className="w-16 h-16 mx-auto rounded-xl bg-white/5 flex items-center justify-center mb-4 transition-transform duration-300 group-hover:-translate-y-1">
-            <GitLabIcon className="w-8 h-8 text-white/60 transition-transform duration-300 group-hover:scale-110" />
+          <div className={`w-16 h-16 mx-auto rounded-xl flex items-center justify-center mb-4 transition-all duration-300 group-hover:-translate-y-1 group-hover:bg-[#FC6D26]/10 ${isHovered ? '-translate-y-1 bg-[#FC6D26]/10' : 'bg-white/5'}`}>
+            <GitLabIcon className={`w-8 h-8 transition-all duration-300 group-hover:scale-110 group-hover:text-[#FC6D26] ${isHovered ? 'text-[#FC6D26] scale-110' : 'text-white/60'}`} />
           </div>
           <p className="font-semibold text-white">Any GitLab</p>
-          <p className="text-xs text-white/40 mt-1">Escrow</p>
+          <p className={`text-xs mt-1 transition-colors duration-300 group-hover:text-[#FC6D26] ${isHovered ? 'text-[#FC6D26]' : 'text-white/40'}`}>Escrow</p>
         </button>
       </div>
 
@@ -1243,8 +1309,8 @@ export default function LaunchPage() {
           </>
         ) : (
           <>
-            <Rocket className="w-5 h-5" />
-            Launch on pump.fun
+            <GitBranch className="w-5 h-5" />
+            Tokenize on pump.fun
           </>
         )}
       </button>
@@ -1341,8 +1407,8 @@ export default function LaunchPage() {
       {/* Star Particles */}
       <StarParticles />
       
-      {/* Character Video */}
-      <LaunchCharacterVideo />
+      {/* Character Video - Only show on mode selection step */}
+      {step === 'mode' && <LaunchCharacterVideo videoRef={videoRef} />}
       
       {/* Ambient glow */}
       <div className="fixed inset-0 overflow-hidden pointer-events-none">

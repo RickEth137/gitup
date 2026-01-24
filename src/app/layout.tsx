@@ -38,6 +38,12 @@ export default function RootLayout({
 }) {
   return (
     <html lang="en">
+      <head>
+        {/* Hand-drawn font for annotations + Comic font for docs */}
+        <link rel="preconnect" href="https://fonts.googleapis.com" />
+        <link rel="preconnect" href="https://fonts.gstatic.com" crossOrigin="anonymous" />
+        <link href="https://fonts.googleapis.com/css2?family=Bangers&family=Caveat:wght@400;500;600&display=swap" rel="stylesheet" />
+      </head>
       <body className="min-h-screen bg-pump-dark text-white">
         <Providers>
           <Header />
