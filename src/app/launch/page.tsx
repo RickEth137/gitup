@@ -4,7 +4,7 @@ import { useState, useRef, useEffect, useMemo } from 'react';
 import { useSession, signIn } from 'next-auth/react';
 import { useWallet, useConnection } from '@solana/wallet-adapter-react';
 import { WalletMultiButton } from '@solana/wallet-adapter-react-ui';
-import { Github, Twitter, ArrowRight, ArrowLeft, Wallet, CheckCircle, AlertCircle, Search, Star, GitFork, ExternalLink, Send, Instagram, Facebook, ImageIcon, MapPin, Building2, Link as LinkIcon, Users, Calendar, Gift, GitBranch } from 'lucide-react';
+import { Github, Twitter, ArrowRight, ArrowLeft, Wallet, CheckCircle, AlertCircle, Search, Star, GitFork, ExternalLink, Send, Instagram, Facebook, ImageIcon, MapPin, Building2, Link as LinkIcon, Users, Calendar, Gift, GitBranch, Globe } from 'lucide-react';
 import { calculateSolCostForSupply, createToken, CreateTokenResult } from '@/lib/pumpfun';
 import { useSolPrice } from '@/lib/useSolPrice';
 
@@ -141,6 +141,13 @@ export default function LaunchPage() {
   const [tokenLogoPreview, setTokenLogoPreview] = useState<string>('');
   const [tokenBanner, setTokenBanner] = useState<File | null>(null);
   const [tokenBannerPreview, setTokenBannerPreview] = useState<string>('');
+  
+  // Social links
+  const [tokenWebsite, setTokenWebsite] = useState('');
+  const [tokenTwitter, setTokenTwitter] = useState('');
+  const [tokenTelegram, setTokenTelegram] = useState('');
+  const [autoGenerateWebsite, setAutoGenerateWebsite] = useState(true);
+  
   const [isLaunching, setIsLaunching] = useState(false);
   const [launchError, setLaunchError] = useState<string | null>(null);
   const [launchResult, setLaunchResult] = useState<CreateTokenResult | null>(null);
@@ -468,6 +475,9 @@ export default function LaunchPage() {
         throw new Error('No token logo selected');
       }
 
+      // Build website URL - either user's custom or auto-generated
+      const websiteUrl = tokenWebsite || (autoGenerateWebsite ? `https://gitup.fun/site/MINT_PLACEHOLDER` : selectedEntity?.html_url);
+
       // Create the token on pump.fun
       const result = await createToken(
         {
@@ -476,7 +486,9 @@ export default function LaunchPage() {
             symbol: tokenSymbol,
             description: tokenDescription,
             image: imageBlob,
-            website: selectedEntity?.html_url,
+            website: websiteUrl,
+            twitter: tokenTwitter || undefined,
+            telegram: tokenTelegram || undefined,
           },
           initialBuyAmount: 0.001, // Small initial buy
           slippage: 10,
@@ -489,6 +501,41 @@ export default function LaunchPage() {
       );
 
       console.log('Token created:', result);
+      
+      // Save site data for auto-generated website
+      if (autoGenerateWebsite && result.mint) {
+        const siteData = {
+          name: tokenName,
+          symbol: tokenSymbol,
+          description: tokenDescription,
+          image: tokenLogoPreview || '',
+          banner: tokenBannerPreview || '',
+          website: tokenWebsite || '',
+          twitter: tokenTwitter || '',
+          telegram: tokenTelegram || '',
+          github: selectedEntity?.html_url || '',
+          readme: readmeContent || '',
+          repoName: selectedEntity?.name || '',
+          repoOwner: selectedEntity?.owner?.login || '',
+          repoStars: selectedEntity?.stargazers_count || 0,
+          repoForks: selectedEntity?.forks_count || 0,
+        };
+        
+        // Save to localStorage for immediate access
+        localStorage.setItem(`site_${result.mint}`, JSON.stringify(siteData));
+        
+        // Also try to save to API (for persistence)
+        try {
+          await fetch('/api/site', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ mint: result.mint, ...siteData }),
+          });
+        } catch (e) {
+          console.log('Failed to save site data to API, using localStorage');
+        }
+      }
+      
       setLaunchResult(result);
       setStep('success');
     } catch (error) {
@@ -519,6 +566,11 @@ export default function LaunchPage() {
     setSelectedEntity(null);
     setTokenName('');
     setTokenSymbol('');
+    setTokenDescription('');
+    setTokenWebsite('');
+    setTokenTwitter('');
+    setTokenTelegram('');
+    setAutoGenerateWebsite(true);
     setLaunchError(null);
     setLaunchResult(null);
   };
@@ -1068,6 +1120,87 @@ export default function LaunchPage() {
                 className="w-full px-4 py-3 bg-white/[0.03] border border-white/10 rounded-xl text-white placeholder:text-white/30 focus:outline-none focus:border-[#00FF41]/50 resize-none"
               />
               <p className="text-xs text-white/30 mt-1 text-right">{tokenDescription.length}/200</p>
+            </div>
+            
+            {/* Social Links Section */}
+            <div className="pt-4 border-t border-white/10">
+              <label className="block text-sm text-white/60 mb-3">Social Links (Optional)</label>
+              <div className="space-y-3">
+                <div className="flex items-center gap-2">
+                  <div className="w-10 h-10 bg-white/5 rounded-lg flex items-center justify-center flex-shrink-0">
+                    <Globe className="w-4 h-4 text-white/40" />
+                  </div>
+                  <input
+                    type="url"
+                    value={tokenWebsite}
+                    onChange={(e) => setTokenWebsite(e.target.value)}
+                    placeholder="Website URL"
+                    className="flex-1 px-3 py-2.5 bg-white/[0.03] border border-white/10 rounded-lg text-white text-sm placeholder:text-white/30 focus:outline-none focus:border-[#00FF41]/50"
+                  />
+                </div>
+                <div className="flex items-center gap-2">
+                  <div className="w-10 h-10 bg-white/5 rounded-lg flex items-center justify-center flex-shrink-0">
+                    <Twitter className="w-4 h-4 text-white/40" />
+                  </div>
+                  <input
+                    type="text"
+                    value={tokenTwitter}
+                    onChange={(e) => setTokenTwitter(e.target.value)}
+                    placeholder="@twitter or URL"
+                    className="flex-1 px-3 py-2.5 bg-white/[0.03] border border-white/10 rounded-lg text-white text-sm placeholder:text-white/30 focus:outline-none focus:border-[#00FF41]/50"
+                  />
+                </div>
+                <div className="flex items-center gap-2">
+                  <div className="w-10 h-10 bg-white/5 rounded-lg flex items-center justify-center flex-shrink-0">
+                    <Send className="w-4 h-4 text-white/40" />
+                  </div>
+                  <input
+                    type="text"
+                    value={tokenTelegram}
+                    onChange={(e) => setTokenTelegram(e.target.value)}
+                    placeholder="@telegram or t.me/..."
+                    className="flex-1 px-3 py-2.5 bg-white/[0.03] border border-white/10 rounded-lg text-white text-sm placeholder:text-white/30 focus:outline-none focus:border-[#00FF41]/50"
+                  />
+                </div>
+              </div>
+            </div>
+            
+            {/* Auto-Generate Website Toggle */}
+            <div className="pt-4 border-t border-white/10">
+              <div 
+                onClick={() => setAutoGenerateWebsite(!autoGenerateWebsite)}
+                className={`flex items-center justify-between p-4 rounded-xl border cursor-pointer transition-all ${
+                  autoGenerateWebsite 
+                    ? 'bg-[#00FF41]/10 border-[#00FF41]/30' 
+                    : 'bg-white/[0.02] border-white/10 hover:border-white/20'
+                }`}
+              >
+                <div className="flex items-center gap-3">
+                  <div className={`w-10 h-10 rounded-lg flex items-center justify-center ${
+                    autoGenerateWebsite ? 'bg-[#00FF41]/20' : 'bg-white/5'
+                  }`}>
+                    <Globe className={`w-5 h-5 ${autoGenerateWebsite ? 'text-[#00FF41]' : 'text-white/40'}`} />
+                  </div>
+                  <div>
+                    <p className={`font-semibold ${autoGenerateWebsite ? 'text-[#00FF41]' : 'text-white'}`}>
+                      Auto-Generate Website
+                    </p>
+                    <p className="text-xs text-white/40">Create a landing page with your README</p>
+                  </div>
+                </div>
+                <div className={`w-12 h-7 rounded-full p-1 transition-colors ${
+                  autoGenerateWebsite ? 'bg-[#00FF41]' : 'bg-white/20'
+                }`}>
+                  <div className={`w-5 h-5 rounded-full bg-white shadow-md transform transition-transform ${
+                    autoGenerateWebsite ? 'translate-x-5' : 'translate-x-0'
+                  }`} />
+                </div>
+              </div>
+              {autoGenerateWebsite && (
+                <p className="mt-2 text-xs text-white/40 px-1">
+                  🔗 Your site: gitup.fun/site/[token-address]
+                </p>
+              )}
             </div>
           </div>
 

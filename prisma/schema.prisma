@@ -194,3 +194,39 @@ model LaunchAttempt {
   @@index([entityType, entityId])
   @@index([userId])
 }
+
+// ============================================
+// Token Sites - Auto-generated project websites
+// ============================================
+
+model TokenSite {
+  id          String   @id @default(cuid())
+  mint        String   @unique // Token mint address
+  
+  // Basic info
+  name        String
+  symbol      String
+  description String   @db.Text
+  
+  // Media
+  image       String?  @db.Text // Base64 or URL
+  banner      String?  @db.Text // Base64 or URL
+  
+  // Social links
+  website     String?
+  twitter     String?
+  telegram    String?
+  github      String?
+  
+  // Repository info
+  readme      String?  @db.Text
+  repoName    String?
+  repoOwner   String?
+  repoStars   Int?     @default(0)
+  repoForks   Int?     @default(0)
+  
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+  
+  @@index([mint])
+}

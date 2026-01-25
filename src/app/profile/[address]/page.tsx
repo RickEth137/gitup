@@ -1,16 +1,8 @@
 'use client';
 
-import { useState, useEffect, useMemo } from 'react';
+import { useState, useEffect, useMemo, useRef } from 'react';
 import { useParams } from 'next/navigation';
-import Link from 'next/link';
-import { Copy, ExternalLink, Check, Twitter, GitBranch } from 'lucide-react';
-import { 
-  TokenInfo, 
-  getCreatedTokens,
-  getPumpFunUrl, 
-  formatSol,
-  BONDING_CURVE_GRADUATION_SOL 
-} from '@/lib/pumpfun';
+import { Camera, Pencil, Check, X, Twitter, Copy, ExternalLink, GitBranch } from 'lucide-react';
 
 // Star particles background
 function StarParticles() {
@@ -47,104 +39,46 @@ function StarParticles() {
   );
 }
 
-interface TokenCardProps {
-  token: TokenInfo;
-}
-
-function TokenCard({ token }: TokenCardProps) {
-  const progress = token.bondingCurve?.progress ?? 0;
-  const isGraduated = token.bondingCurve?.complete ?? false;
-  
-  return (
-    <Link 
-      href={`/token/${token.mint}`}
-      className="block border border-white/10 bg-white/[0.02] rounded-xl p-5 hover:border-[#00FF41]/50 hover:bg-white/[0.04] transition-all group"
-    >
-      <div className="flex items-start gap-4">
-        {/* Token Image */}
-        <div className="w-14 h-14 bg-black/50 border border-white/10 rounded-lg flex-shrink-0 overflow-hidden">
-          {token.image ? (
-            <img 
-              src={token.image} 
-              alt={token.name}
-              className="w-full h-full object-cover"
-            />
-          ) : (
-            <div className="w-full h-full flex items-center justify-center text-white/30 text-xl font-bold">
-              {token.symbol.charAt(0)}
-            </div>
-          )}
-        </div>
-
-        {/* Token Info */}
-        <div className="flex-1 min-w-0">
-          <div className="flex items-center gap-2 mb-1">
-            <h3 className="text-white font-semibold truncate group-hover:text-[#00FF41] transition-colors">
-              {token.name}
-            </h3>
-            <span className="text-white/40 text-sm">${token.symbol}</span>
-          </div>
-          
-          <p className="text-white/40 text-sm line-clamp-1 mb-3">{token.description}</p>
-
-          {/* Progress Bar */}
-          <div className="flex items-center gap-3">
-            <div className="flex-1 h-2 bg-black/50 border border-white/10 rounded-full overflow-hidden">
-              <div 
-                className={`h-full rounded-full ${isGraduated ? 'bg-[#00FF41]' : 'bg-[#00FF41]/60'}`}
-                style={{ width: `${Math.min(progress, 100)}%` }}
-              />
-            </div>
-            <span className={`text-xs font-mono ${isGraduated ? 'text-[#00FF41]' : 'text-white/50'}`}>
-              {isGraduated ? '✓ Graduated' : `${progress.toFixed(0)}%`}
-            </span>
-          </div>
-        </div>
-
-        {/* Market Cap */}
-        <div className="text-right flex-shrink-0">
-          <p className="text-white font-mono">
-            {token.usdMarketCap ? `$${(token.usdMarketCap / 1000).toFixed(1)}K` : '-'}
-          </p>
-          <p className="text-white/40 text-xs">mcap</p>
-        </div>
-      </div>
-    </Link>
-  );
-}
-
 export default function ProfilePage() {
   const params = useParams();
   const address = params.address as string;
+  const fileInputRef = useRef<HTMLInputElement>(null);
   
-  const [tokens, setTokens] = useState<TokenInfo[]>([]);
-  const [isLoading, setIsLoading] = useState(true);
-  const [error, setError] = useState<string | null>(null);
+  // Profile state
+  const [profileImage, setProfileImage] = useState<string | null>(null);
+  const [username, setUsername] = useState('');
+  const [bio, setBio] = useState('');
+  
+  // Edit mode states
+  const [isEditingUsername, setIsEditingUsername] = useState(false);
+  const [isEditingBio, setIsEditingBio] = useState(false);
+  const [tempUsername, setTempUsername] = useState('');
+  const [tempBio, setTempBio] = useState('');
+  
   const [copied, setCopied] = useState(false);
 
+  // Load profile from localStorage on mount
   useEffect(() => {
-    async function fetchTokens() {
-      try {
-        setIsLoading(true);
-        const response = await fetch(`/api/tokens?wallet=${address}`);
-        
-        if (!response.ok) {
-          throw new Error('Failed to fetch tokens');
-        }
-        
-        const data = await response.json();
-        setTokens(data.tokens || []);
-      } catch (err: any) {
-        setError(err.message || 'Failed to load profile');
-      } finally {
-        setIsLoading(false);
+    if (address) {
+      const savedProfile = localStorage.getItem(`profile_${address}`);
+      if (savedProfile) {
+        const { username: savedUsername, bio: savedBio, image: savedImage } = JSON.parse(savedProfile);
+        setUsername(savedUsername || '');
+        setBio(savedBio || '');
+        setProfileImage(savedImage || null);
       }
     }
-
-    if (address) {
-      fetchTokens();
-    }
   }, [address]);
+
+  // Save profile to localStorage
+  const saveProfile = (newUsername?: string, newBio?: string, newImage?: string | null) => {
+    const profile = {
+      username: newUsername ?? username,
+      bio: newBio ?? bio,
+      image: newImage !== undefined ? newImage : profileImage,
+    };
+    localStorage.setItem(`profile_${address}`, JSON.stringify(profile));
+  };
 
   const shortenAddress = (addr: string) => `${addr.slice(0, 4)}...${addr.slice(-4)}`;
   
@@ -154,220 +88,202 @@ export default function ProfilePage() {
     setTimeout(() => setCopied(false), 2000);
   };
 
-  const handleShareTwitter = () => {
-    const text = `Check out my GitUp.fun profile! 🚀\n\nI've tokenized ${tokens.length} repositories on Solana.\n\nhttps://gitup.fun/profile/${address}`;
-    window.open(`https://twitter.com/intent/tweet?text=${encodeURIComponent(text)}`, '_blank');
+  const handleImageUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (file) {
+      const reader = new FileReader();
+      reader.onloadend = () => {
+        const base64 = reader.result as string;
+        setProfileImage(base64);
+        saveProfile(undefined, undefined, base64);
+      };
+      reader.readAsDataURL(file);
+    }
   };
 
-  // Calculate stats
-  const totalTokens = tokens.length;
-  const graduatedTokens = tokens.filter(t => t.bondingCurve?.complete).length;
+  const handleSaveUsername = () => {
+    setUsername(tempUsername);
+    saveProfile(tempUsername, undefined, undefined);
+    setIsEditingUsername(false);
+  };
+
+  const handleSaveBio = () => {
+    setBio(tempBio);
+    saveProfile(undefined, tempBio, undefined);
+    setIsEditingBio(false);
+  };
+
+  const handleShareTwitter = () => {
+    const displayName = username || shortenAddress(address);
+    const text = `Check out my GitUp.fun profile! 🚀\n\n${bio ? bio + '\n\n' : ''}https://gitup.fun/profile/${address}`;
+    window.open(`https://twitter.com/intent/tweet?text=${encodeURIComponent(text)}`, '_blank');
+  };
 
   return (
     <div className="min-h-screen bg-[#0a0a0a] relative">
       <StarParticles />
       
-      <main className="max-w-5xl mx-auto px-4 pt-20 pb-12 relative z-10">
+      <main className="max-w-lg mx-auto px-4 pt-24 pb-12 relative z-10">
         
-        {/* Profile Cards Container */}
-        <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 mb-12">
+        {/* Profile Card */}
+        <div className="border border-[#00FF41]/20 bg-[#0d0d0d] rounded-2xl p-8 relative overflow-hidden">
           
-          {/* Left Card - Profile Display */}
-          <div className="border border-[#00FF41]/20 bg-[#0d0d0d] rounded-2xl p-6 relative overflow-hidden">
-            {/* GitUp.fun badge */}
-            <div className="flex items-center gap-2 mb-6">
-              <div className="w-7 h-7 bg-[#00FF41] rounded-lg flex items-center justify-center">
-                <GitBranch className="w-4 h-4 text-black" />
-              </div>
-              <span className="text-white font-bold text-lg tracking-wide">GITUP.FUN</span>
+          {/* GitUp.fun badge */}
+          <div className="flex items-center justify-center gap-2 mb-8">
+            <div className="w-7 h-7 bg-[#00FF41] rounded-lg flex items-center justify-center">
+              <GitBranch className="w-4 h-4 text-black" />
             </div>
-            
-            {/* Avatar */}
-            <div className="w-full aspect-square max-w-[280px] mx-auto mb-6 rounded-xl overflow-hidden border border-[#00FF41]/30 relative" style={{ background: 'linear-gradient(135deg, #00FF41 0%, #003d10 25%, #001a08 50%, #003d10 75%, #00FF41 100%)' }}>
-              {/* Inner dark area */}
-              <div className="absolute inset-3 rounded-lg bg-[#0a0a0a]/90 flex items-center justify-center">
-                <div className="w-28 h-28 rounded-full border border-white/10 flex items-center justify-center">
-                  <svg className="w-14 h-14 text-white/40" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z" />
-                  </svg>
-                </div>
-              </div>
-              {/* Decorative corner dot */}
-              <div className="absolute top-3 right-3 w-2.5 h-2.5 bg-[#00FF41] rounded-full" />
-            </div>
-            
-            {/* Username/Address Button */}
-            <button 
-              onClick={handleCopy}
-              className="w-full max-w-[280px] mx-auto flex items-center justify-center gap-2 bg-[#00FF41] text-black font-bold py-3.5 px-6 rounded-full hover:bg-[#00FF41]/90 transition-colors text-base"
+            <span className="text-white font-bold text-lg tracking-wide">GITUP.FUN</span>
+          </div>
+          
+          {/* Profile Picture */}
+          <div className="relative w-32 h-32 mx-auto mb-6">
+            <div 
+              className="w-full h-full rounded-full border-2 border-[#00FF41]/50 overflow-hidden bg-black/50 flex items-center justify-center cursor-pointer group"
+              onClick={() => fileInputRef.current?.click()}
             >
-              <span className="font-mono">@{shortenAddress(address)}</span>
+              {profileImage ? (
+                <img src={profileImage} alt="Profile" className="w-full h-full object-cover" />
+              ) : (
+                <svg className="w-16 h-16 text-white/30" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z" />
+                </svg>
+              )}
+              
+              {/* Hover overlay */}
+              <div className="absolute inset-0 bg-black/60 opacity-0 group-hover:opacity-100 transition-opacity rounded-full flex items-center justify-center">
+                <Camera className="w-8 h-8 text-[#00FF41]" />
+              </div>
+            </div>
+            
+            {/* Upload button */}
+            <button 
+              onClick={() => fileInputRef.current?.click()}
+              className="absolute bottom-0 right-0 w-10 h-10 bg-[#00FF41] rounded-full flex items-center justify-center hover:bg-[#00FF41]/80 transition-colors"
+            >
+              <Camera className="w-5 h-5 text-black" />
             </button>
             
-            {/* Stats row */}
-            <div className="flex justify-center items-center gap-12 mt-8 max-w-[280px] mx-auto">
-              <div className="text-center">
-                <p className="text-white/50 text-sm mb-1">GitUps</p>
-                <p className="text-white font-bold text-lg">{totalTokens}</p>
-              </div>
-              <div className="w-px h-10 bg-white/10" />
-              <div className="text-center">
-                <p className="text-white/50 text-sm mb-1">Graduated</p>
-                <p className="text-[#00FF41] font-bold text-lg">{graduatedTokens}</p>
-              </div>
-            </div>
-            
-            {/* Social Icons */}
-            <div className="flex justify-center gap-4 mt-8">
-              <button 
-                onClick={handleShareTwitter}
-                className="w-11 h-11 rounded-full border border-white/20 bg-transparent flex items-center justify-center hover:border-[#00FF41] hover:bg-[#00FF41]/10 transition-all"
-              >
-                <Twitter className="w-5 h-5 text-white/70" />
-              </button>
-              <button 
-                onClick={handleCopy}
-                className="w-11 h-11 rounded-full border border-white/20 bg-transparent flex items-center justify-center hover:border-[#00FF41] hover:bg-[#00FF41]/10 transition-all"
-              >
-                <Copy className="w-5 h-5 text-white/70" />
-              </button>
-              <a
-                href={`https://solscan.io/account/${address}`}
-                target="_blank"
-                rel="noopener noreferrer"
-                className="w-11 h-11 rounded-full border border-white/20 bg-transparent flex items-center justify-center hover:border-[#00FF41] hover:bg-[#00FF41]/10 transition-all"
-              >
-                <ExternalLink className="w-5 h-5 text-white/70" />
-              </a>
-            </div>
+            <input
+              ref={fileInputRef}
+              type="file"
+              accept="image/*"
+              onChange={handleImageUpload}
+              className="hidden"
+            />
           </div>
           
-          {/* Right Card - Stats & Actions */}
-          <div className="space-y-4">
-            {/* Stats Card */}
-            <div className="border border-[#00FF41]/20 bg-[#0d0d0d] rounded-2xl p-5">
-              <div className="flex items-center justify-between mb-5">
-                <div className="flex items-center gap-3">
-                  <div className="w-11 h-11 rounded-full bg-[#00FF41]/10 border border-[#00FF41]/40 flex items-center justify-center">
-                    <GitBranch className="w-5 h-5 text-[#00FF41]" />
-                  </div>
-                  <div>
-                    <p className="text-white font-semibold">{shortenAddress(address)}</p>
-                    <p className="text-white/50 text-sm">{totalTokens} repositories tokenized</p>
-                  </div>
-                </div>
-                <div className="text-right">
-                  <p className="text-[#00FF41] text-2xl font-bold">#-</p>
-                  <p className="text-white/50 text-xs">Ranking</p>
-                </div>
-              </div>
-              
-              {/* Progress bar for graduated */}
-              <div>
-                <div className="flex items-center justify-between text-sm mb-2">
-                  <span className="text-white/50">Graduation rate</span>
-                  <span className="text-[#00FF41] font-medium">{totalTokens > 0 ? Math.round((graduatedTokens / totalTokens) * 100) : 0}%</span>
-                </div>
-                <div className="h-1.5 bg-white/5 rounded-full overflow-hidden">
-                  <div 
-                    className="h-full bg-[#00FF41] rounded-full transition-all"
-                    style={{ width: `${totalTokens > 0 ? (graduatedTokens / totalTokens) * 100 : 0}%` }}
-                  />
-                </div>
-              </div>
-            </div>
-            
-            {/* Wallet Address Card */}
-            <div className="border border-[#00FF41]/20 bg-[#0d0d0d] rounded-2xl p-5">
-              <p className="text-white/60 text-sm mb-4">Wallet Address</p>
-              
-              <div className="flex items-center gap-2 bg-black/50 rounded-xl p-3 border border-white/10">
-                <code className="flex-1 text-white/70 text-sm font-mono truncate">{address}</code>
-                <button
-                  onClick={handleCopy}
-                  className="flex items-center gap-1.5 px-3 py-1.5 bg-white/5 hover:bg-white/10 rounded-lg border border-white/10 transition-colors flex-shrink-0"
-                >
-                  {copied ? (
-                    <>
-                      <Check className="w-4 h-4 text-[#00FF41]" />
-                      <span className="text-[#00FF41] text-xs font-medium">Copied</span>
-                    </>
-                  ) : (
-                    <>
-                      <Copy className="w-4 h-4 text-white/60" />
-                      <span className="text-white/60 text-xs">Copy</span>
-                    </>
-                  )}
+          {/* Username */}
+          <div className="mb-4">
+            {isEditingUsername ? (
+              <div className="flex items-center justify-center gap-2">
+                <input
+                  type="text"
+                  value={tempUsername}
+                  onChange={(e) => setTempUsername(e.target.value)}
+                  placeholder="Enter username"
+                  className="bg-black/50 border border-white/20 rounded-lg px-4 py-2 text-white text-center focus:outline-none focus:border-[#00FF41] w-48"
+                  autoFocus
+                />
+                <button onClick={handleSaveUsername} className="w-8 h-8 bg-[#00FF41] rounded-lg flex items-center justify-center">
+                  <Check className="w-4 h-4 text-black" />
+                </button>
+                <button onClick={() => setIsEditingUsername(false)} className="w-8 h-8 bg-white/10 rounded-lg flex items-center justify-center">
+                  <X className="w-4 h-4 text-white" />
                 </button>
               </div>
-              
-              {/* Share button */}
-              <button
-                onClick={handleShareTwitter}
-                className="w-full mt-4 flex items-center justify-center gap-2 bg-[#00FF41] text-black font-bold py-3.5 rounded-xl hover:bg-[#00FF41]/90 transition-colors text-base"
-              >
-                Share on
-                <Twitter className="w-5 h-5" />
-              </button>
-            </div>
-            
-            {/* Quick Actions */}
-            <div className="border border-[#00FF41]/20 bg-[#0d0d0d] rounded-2xl p-5">
-              <p className="text-white/60 text-sm mb-4">Quick Actions</p>
-              <div className="grid grid-cols-2 gap-3">
-                <Link
-                  href="/launch"
-                  className="flex items-center justify-center gap-2 bg-[#00FF41] text-black font-bold py-3.5 rounded-xl hover:bg-[#00FF41]/90 transition-colors"
+            ) : (
+              <div className="flex items-center justify-center gap-2">
+                <h1 className="text-white text-xl font-bold">
+                  {username || shortenAddress(address)}
+                </h1>
+                <button 
+                  onClick={() => { setTempUsername(username); setIsEditingUsername(true); }}
+                  className="w-7 h-7 bg-white/10 rounded-lg flex items-center justify-center hover:bg-white/20 transition-colors"
                 >
-                  <GitBranch className="w-5 h-5" />
-                  Tokenize
-                </Link>
-                <Link
-                  href="/explore"
-                  className="flex items-center justify-center gap-2 bg-white/5 border border-white/20 text-white/80 font-semibold py-3.5 rounded-xl hover:bg-white/10 transition-colors"
-                >
-                  Explore
-                </Link>
+                  <Pencil className="w-3.5 h-3.5 text-white/60" />
+                </button>
               </div>
-            </div>
+            )}
           </div>
-        </div>
-
-        {/* Tokens Section */}
-        <div className="mb-6">
-          <h2 className="text-white text-xl font-bold mb-4">Launched GitUps</h2>
-        </div>
-
-        {isLoading ? (
-          <div className="border border-white/10 bg-white/[0.02] rounded-2xl p-12 text-center">
-            <div className="inline-block animate-spin h-8 w-8 border-2 border-[#00FF41] border-t-transparent rounded-full" />
-            <p className="text-white/40 mt-4">Loading tokens...</p>
+          
+          {/* Wallet Address */}
+          <button 
+            onClick={handleCopy}
+            className="mx-auto mb-6 flex items-center gap-2 bg-white/5 border border-white/10 rounded-full px-4 py-2 hover:bg-white/10 transition-colors"
+          >
+            <code className="text-white/60 text-sm font-mono">{shortenAddress(address)}</code>
+            {copied ? (
+              <Check className="w-4 h-4 text-[#00FF41]" />
+            ) : (
+              <Copy className="w-4 h-4 text-white/40" />
+            )}
+          </button>
+          
+          {/* Bio */}
+          <div className="mb-8">
+            {isEditingBio ? (
+              <div className="space-y-2">
+                <textarea
+                  value={tempBio}
+                  onChange={(e) => setTempBio(e.target.value)}
+                  placeholder="Write a short bio..."
+                  className="w-full bg-black/50 border border-white/20 rounded-lg px-4 py-3 text-white text-center focus:outline-none focus:border-[#00FF41] resize-none h-24"
+                  autoFocus
+                />
+                <div className="flex justify-center gap-2">
+                  <button onClick={handleSaveBio} className="px-4 py-2 bg-[#00FF41] rounded-lg text-black font-medium text-sm flex items-center gap-1">
+                    <Check className="w-4 h-4" /> Save
+                  </button>
+                  <button onClick={() => setIsEditingBio(false)} className="px-4 py-2 bg-white/10 rounded-lg text-white font-medium text-sm flex items-center gap-1">
+                    <X className="w-4 h-4" /> Cancel
+                  </button>
+                </div>
+              </div>
+            ) : (
+              <div 
+                onClick={() => { setTempBio(bio); setIsEditingBio(true); }}
+                className="text-center cursor-pointer group"
+              >
+                {bio ? (
+                  <p className="text-white/60 text-sm leading-relaxed group-hover:text-white/80 transition-colors">
+                    {bio}
+                  </p>
+                ) : (
+                  <p className="text-white/30 text-sm italic group-hover:text-white/50 transition-colors">
+                    Click to add a bio...
+                  </p>
+                )}
+              </div>
+            )}
           </div>
-        ) : error ? (
-          <div className="border border-white/10 bg-white/[0.02] rounded-2xl p-12 text-center">
-            <p className="text-red-400">{error}</p>
-          </div>
-        ) : tokens.length === 0 ? (
-          <div className="border border-white/10 bg-white/[0.02] rounded-2xl p-12 text-center">
-            <div className="w-16 h-16 mx-auto mb-4 rounded-full bg-white/5 border border-white/10 flex items-center justify-center">
-              <GitBranch className="w-8 h-8 text-white/20" />
-            </div>
-            <p className="text-white/40 mb-4">No GitUps launched yet</p>
-            <Link
-              href="/launch"
-              className="inline-flex items-center gap-2 bg-[#00FF41] text-black font-semibold px-6 py-2.5 rounded-lg hover:bg-[#00FF41]/90 transition-colors"
+          
+          {/* Social Links */}
+          <div className="flex justify-center gap-3">
+            <button 
+              onClick={handleShareTwitter}
+              className="w-11 h-11 rounded-full border border-white/20 bg-transparent flex items-center justify-center hover:border-[#00FF41] hover:bg-[#00FF41]/10 transition-all"
             >
-              <GitBranch className="w-4 h-4" />
-              Tokenize Your First Repo
-            </Link>
+              <Twitter className="w-5 h-5 text-white/70" />
+            </button>
+            <button 
+              onClick={handleCopy}
+              className="w-11 h-11 rounded-full border border-white/20 bg-transparent flex items-center justify-center hover:border-[#00FF41] hover:bg-[#00FF41]/10 transition-all"
+            >
+              <Copy className="w-5 h-5 text-white/70" />
+            </button>
+            <a
+              href={`https://solscan.io/account/${address}`}
+              target="_blank"
+              rel="noopener noreferrer"
+              className="w-11 h-11 rounded-full border border-white/20 bg-transparent flex items-center justify-center hover:border-[#00FF41] hover:bg-[#00FF41]/10 transition-all"
+            >
+              <ExternalLink className="w-5 h-5 text-white/70" />
+            </a>
           </div>
-        ) : (
-          <div className="space-y-4">
-            {tokens.map((token) => (
-              <TokenCard key={token.mint} token={token} />
-            ))}
-          </div>
-        )}
+          
+        </div>
+        
       </main>
     </div>
   );
