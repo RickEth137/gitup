@@ -48,7 +48,7 @@ function StarParticles() {
 }
 
 // Character Video Component - LOCKED POSITION
-function LaunchCharacterVideo({ videoRef }: { videoRef?: React.RefObject<HTMLVideoElement | null> }) {
+function LaunchCharacterVideo({ videoRef }: { videoRef?: React.RefObject<HTMLVideoElement> }) {
   return (
     <div
       className="fixed z-50 pointer-events-none"
@@ -60,7 +60,7 @@ function LaunchCharacterVideo({ videoRef }: { videoRef?: React.RefObject<HTMLVid
       }}
     >
       <video
-        ref={videoRef}
+        ref={videoRef as React.RefObject<HTMLVideoElement>}
         autoPlay
         loop
         muted
