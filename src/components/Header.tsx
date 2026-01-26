@@ -34,6 +34,12 @@ export function Header() {
           {/* Navigation - Absolute center */}
           <nav className="hidden md:flex items-center gap-1 absolute left-1/2 -translate-x-1/2">
             <Link
+              href="/"
+              className="px-4 py-2 text-white/50 hover:text-[#00FF41] transition-colors text-sm font-medium"
+            >
+              Home
+            </Link>
+            <Link
               href="/launch"
               className="px-4 py-2 text-white/50 hover:text-[#00FF41] transition-colors text-sm font-medium"
             >

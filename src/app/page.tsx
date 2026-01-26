@@ -170,9 +170,9 @@ export default function HomePage() {
         </div>
 
         {/* Animated scroll down arrow */}
-        <div className="absolute bottom-8 right-8 flex flex-col items-center gap-1 animate-bounce">
-          <span className="text-[10px] text-white/30 uppercase tracking-wider">Scroll</span>
-          <ChevronDown className="w-5 h-5 text-[#00FF41]/60" />
+        <div className="absolute bottom-8 right-8 flex flex-col items-center gap-2 animate-bounce">
+          <span className="text-sm text-white/40 uppercase tracking-wider font-medium">Scroll</span>
+          <ChevronDown className="w-7 h-7 text-[#00FF41]/70" />
         </div>
       </section>
 

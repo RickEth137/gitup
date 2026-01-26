@@ -12,6 +12,42 @@
   --bg: #0a0a0a;
 }
 
+/* Noise Overlay - Film Grain Effect */
+.noise-overlay {
+  position: fixed;
+  inset: 0;
+  pointer-events: none;
+  z-index: 99999;
+  opacity: 0.5;
+  background: 
+    linear-gradient(90deg, rgba(255,255,255,0.03) 1px, transparent 1px),
+    linear-gradient(rgba(255,255,255,0.03) 1px, transparent 1px),
+    radial-gradient(circle, rgba(255,255,255,0.1) 1px, transparent 1px);
+  background-size: 4px 4px, 4px 4px, 3px 3px;
+  animation: grain 0.3s steps(6) infinite;
+}
+
+@keyframes grain {
+  0%, 100% { background-position: 0 0, 0 0, 0 0; }
+  20% { background-position: -2px -2px, 1px 1px, -1px 2px; }
+  40% { background-position: 1px -1px, -2px 2px, 2px -1px; }
+  60% { background-position: -1px 2px, 2px -2px, -2px 1px; }
+  80% { background-position: 2px 1px, -1px -1px, 1px -2px; }
+}
+
+@keyframes noise-shift {
+  0%, 100% { transform: translate(0, 0); }
+  10% { transform: translate(-2%, -2%); }
+  20% { transform: translate(2%, 2%); }
+  30% { transform: translate(-1%, 2%); }
+  40% { transform: translate(2%, -1%); }
+  50% { transform: translate(-2%, 1%); }
+  60% { transform: translate(1%, -2%); }
+  70% { transform: translate(-1%, -1%); }
+  80% { transform: translate(2%, 1%); }
+  90% { transform: translate(-2%, 2%); }
+}
+
 * {
   box-sizing: border-box;
   padding: 0;

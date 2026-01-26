@@ -45,6 +45,8 @@ export default function RootLayout({
         <link href="https://fonts.googleapis.com/css2?family=Bangers&family=Caveat:wght@400;500;600&display=swap" rel="stylesheet" />
       </head>
       <body className="min-h-screen bg-pump-dark text-white">
+        {/* Noise texture overlay */}
+        <div className="noise-overlay" />
         <Providers>
           <Header />
           <main className="pt-16">{children}</main>
