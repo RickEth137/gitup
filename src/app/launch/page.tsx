@@ -4,7 +4,7 @@ import { useState, useRef, useEffect, useMemo } from 'react';
 import { useSession, signIn } from 'next-auth/react';
 import { useWallet, useConnection } from '@solana/wallet-adapter-react';
 import { WalletMultiButton } from '@solana/wallet-adapter-react-ui';
-import { Github, Twitter, ArrowRight, ArrowLeft, Wallet, CheckCircle, AlertCircle, Search, Star, GitFork, ExternalLink, Send, Instagram, Facebook, ImageIcon, MapPin, Building2, Link as LinkIcon, Users, Calendar, Gift, GitBranch, Globe } from 'lucide-react';
+import { Github, Twitter, ArrowRight, ArrowLeft, Wallet, CheckCircle, AlertCircle, Search, Star, GitFork, ExternalLink, Send, Instagram, Facebook, ImageIcon, MapPin, Building2, Link as LinkIcon, Users, Calendar, Gift, GitBranch, Globe, FileText } from 'lucide-react';
 import { calculateSolCostForSupply, createToken, CreateTokenResult } from '@/lib/pumpfun';
 import { useSolPrice } from '@/lib/useSolPrice';
 
@@ -147,6 +147,21 @@ export default function LaunchPage() {
   const [tokenTwitter, setTokenTwitter] = useState('');
   const [tokenTelegram, setTokenTelegram] = useState('');
   const [autoGenerateWebsite, setAutoGenerateWebsite] = useState(true);
+  const [showSitePreview, setShowSitePreview] = useState(false);
+  const [isGeneratingPreview, setIsGeneratingPreview] = useState(false);
+  const [showReadmeInPreview, setShowReadmeInPreview] = useState(false);
+  const [generatedSiteContent, setGeneratedSiteContent] = useState<{
+    tagline: string;
+    heroDescription: string;
+    features: Array<{ title: string; description: string; icon: string }>;
+    useCases: string[];
+    callToAction: string;
+    images?: {
+      heroBanner?: string;
+      screenshots: string[];
+      featureImages: string[];
+    };
+  } | null>(null);
   
   const [isLaunching, setIsLaunching] = useState(false);
   const [launchError, setLaunchError] = useState<string | null>(null);
@@ -438,11 +453,45 @@ export default function LaunchPage() {
     }
   };
 
+  // Handle AI site preview generation
+  const handlePreviewSite = async () => {
+    setIsGeneratingPreview(true);
+    setShowSitePreview(true);
+    setShowReadmeInPreview(false); // Reset README view
+    setGeneratedSiteContent(null);
+
+    try {
+      const response = await fetch('/api/ai/generate-site', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          readme: readmeContent || 'No README available',
+          repoName: selectedEntity?.name || tokenName,
+          repoDescription: selectedEntity?.description || tokenDescription,
+          tokenName,
+          tokenSymbol,
+          repoOwner: selectedEntity?.owner?.login || '',
+        }),
+      });
+
+      if (response.ok) {
+        const data = await response.json();
+        if (data.success && data.content) {
+          setGeneratedSiteContent(data.content);
+        }
+      }
+    } catch (error) {
+      console.error('Failed to generate site preview:', error);
+    } finally {
+      setIsGeneratingPreview(false);
+    }
+  };
+
   const handleEntitySelect = (entity: RepoResult) => {
     setSelectedEntity(entity);
-    setTokenName(`${entity.name} Token`);
+    setTokenName(entity.name);
     setTokenSymbol(entity.name.slice(0, 5).toUpperCase());
-    setTokenDescription(entity.description || `Token for ${entity.full_name} repository`);
+    setTokenDescription(entity.description || `Support the ${entity.full_name} project`);
     setTokenLogoPreview(entity.owner.avatar_url); // Default to owner avatar
     setReadmeContent('');
     setRepoLanguages({});
@@ -1169,37 +1218,42 @@ export default function LaunchPage() {
             <div className="pt-4 border-t border-white/10">
               <div 
                 onClick={() => setAutoGenerateWebsite(!autoGenerateWebsite)}
-                className={`flex items-center justify-between p-4 rounded-xl border cursor-pointer transition-all ${
-                  autoGenerateWebsite 
-                    ? 'bg-[#00FF41]/10 border-[#00FF41]/30' 
-                    : 'bg-white/[0.02] border-white/10 hover:border-white/20'
-                }`}
+                className="flex items-center justify-between p-4 rounded-xl border border-white/10 bg-white/[0.02] cursor-pointer hover:border-white/20 transition-all"
               >
                 <div className="flex items-center gap-3">
-                  <div className={`w-10 h-10 rounded-lg flex items-center justify-center ${
-                    autoGenerateWebsite ? 'bg-[#00FF41]/20' : 'bg-white/5'
-                  }`}>
-                    <Globe className={`w-5 h-5 ${autoGenerateWebsite ? 'text-[#00FF41]' : 'text-white/40'}`} />
-                  </div>
+                  <Globe className="w-5 h-5 text-white/40" />
                   <div>
-                    <p className={`font-semibold ${autoGenerateWebsite ? 'text-[#00FF41]' : 'text-white'}`}>
+                    <p className="font-medium text-white text-sm">
                       Auto-Generate Website
                     </p>
-                    <p className="text-xs text-white/40">Create a landing page with your README</p>
+                    <p className="text-xs text-white/40">Powered by <span className="text-[#E07A2F]">Claude Opus 4.5</span></p>
                   </div>
                 </div>
-                <div className={`w-12 h-7 rounded-full p-1 transition-colors ${
+                <div className={`w-11 h-6 rounded-full p-0.5 transition-colors ${
                   autoGenerateWebsite ? 'bg-[#00FF41]' : 'bg-white/20'
                 }`}>
-                  <div className={`w-5 h-5 rounded-full bg-white shadow-md transform transition-transform ${
+                  <div className={`w-5 h-5 rounded-full bg-white shadow-sm transform transition-transform ${
                     autoGenerateWebsite ? 'translate-x-5' : 'translate-x-0'
                   }`} />
                 </div>
               </div>
               {autoGenerateWebsite && (
-                <p className="mt-2 text-xs text-white/40 px-1">
-                  🔗 Your site: gitup.fun/site/[token-address]
-                </p>
+                <div className="mt-3 flex items-center justify-between px-1">
+                  <p className="text-xs text-white/40">
+                    🔗 Your site: gitup.fun/site/[token-address]
+                  </p>
+                  <button
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      handlePreviewSite();
+                    }}
+                    disabled={!tokenName || !tokenDescription || isGeneratingPreview}
+                    className="text-xs text-[#00FF41] hover:text-[#00FF41]/80 transition-colors disabled:text-white/20 disabled:cursor-not-allowed flex items-center gap-1"
+                  >
+                    <ExternalLink className="w-3 h-3" />
+                    Preview Site
+                  </button>
+                </div>
               )}
             </div>
           </div>
@@ -1551,6 +1605,351 @@ export default function LaunchPage() {
       <div className="relative z-10">
         {renderCurrentStep()}
       </div>
+
+      {/* Site Preview Modal */}
+      {showSitePreview && (
+        <div className="fixed inset-0 z-[100] flex items-center justify-center p-4">
+          {/* Backdrop */}
+          <div 
+            className="absolute inset-0 bg-black/80 backdrop-blur-sm"
+            onClick={() => setShowSitePreview(false)}
+          />
+          
+          {/* Modal */}
+          <div className="relative w-full max-w-5xl max-h-[90vh] rounded-2xl border border-white/10 bg-[#0a0a0a] overflow-hidden">
+            {/* Header */}
+            <div className="flex items-center justify-between p-4 border-b border-white/10">
+              <div className="flex items-center gap-3">
+                <Globe className="w-5 h-5 text-[#00FF41]" />
+                <span className="font-semibold text-white">Site Preview</span>
+                <span className="text-xs text-white/40 bg-white/5 px-2 py-1 rounded">gitup.fun/site/[token-address]</span>
+              </div>
+              <button
+                onClick={() => setShowSitePreview(false)}
+                className="text-white/40 hover:text-white transition-colors p-1"
+              >
+                <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+                </svg>
+              </button>
+            </div>
+            
+            {/* Content */}
+            <div className="overflow-y-auto max-h-[calc(90vh-60px)]">
+              {isGeneratingPreview ? (
+                /* Loading State */
+                <div className="flex flex-col items-center justify-center py-32">
+                  <div className="relative">
+                    {/* Outer ring */}
+                    <div className="w-20 h-20 border-2 border-[#00FF41]/20 rounded-full" />
+                    {/* Spinning ring */}
+                    <div className="absolute inset-0 w-20 h-20 border-2 border-transparent border-t-[#00FF41] rounded-full animate-spin" />
+                    {/* Inner pulse */}
+                    <div className="absolute inset-0 flex items-center justify-center">
+                      <div className="w-8 h-8 bg-[#00FF41]/20 rounded-full animate-pulse" />
+                    </div>
+                  </div>
+                  <p className="mt-6 text-white font-medium">Claude is analyzing your project...</p>
+                  <p className="mt-2 text-white/40 text-sm">Reading README, analyzing images, and generating content</p>
+                </div>
+              ) : (
+                /* Preview Content - AI Generated Template */
+                <div className="bg-[#0a0a0a]">
+                  {/* Top Navigation Bar */}
+                  <div className="sticky top-0 z-20 bg-[#0a0a0a]/90 backdrop-blur-md border-b border-white/5">
+                    <div className="max-w-4xl mx-auto px-6 py-3 flex items-center justify-between">
+                      {/* Logo & Name */}
+                      <div className="flex items-center gap-3">
+                        {tokenLogoPreview ? (
+                          <img src={tokenLogoPreview} alt="" className="w-8 h-8 rounded-lg" />
+                        ) : (
+                          <div className="w-8 h-8 rounded-lg bg-[#00FF41]/20 flex items-center justify-center">
+                            <span className="text-sm font-bold text-[#00FF41]">{tokenSymbol?.[0] || '?'}</span>
+                          </div>
+                        )}
+                        <span className="font-semibold text-white">{tokenName || 'Token'}</span>
+                      </div>
+                      
+                      {/* Social Links */}
+                      <div className="flex items-center gap-2">
+                        {tokenTwitter && (
+                          <span className="p-2 rounded-lg bg-white/5 text-white/60 hover:text-white hover:bg-white/10 transition-colors cursor-pointer">
+                            <Twitter className="w-4 h-4" />
+                          </span>
+                        )}
+                        {tokenTelegram && (
+                          <span className="p-2 rounded-lg bg-white/5 text-white/60 hover:text-white hover:bg-white/10 transition-colors cursor-pointer">
+                            <Send className="w-4 h-4" />
+                          </span>
+                        )}
+                        {tokenWebsite && (
+                          <span className="p-2 rounded-lg bg-white/5 text-white/60 hover:text-white hover:bg-white/10 transition-colors cursor-pointer">
+                            <Globe className="w-4 h-4" />
+                          </span>
+                        )}
+                        {selectedEntity && (
+                          <span className="p-2 rounded-lg bg-white/5 text-white/60 hover:text-white hover:bg-white/10 transition-colors cursor-pointer">
+                            <Github className="w-4 h-4" />
+                          </span>
+                        )}
+                        {/* README Button */}
+                        <span 
+                          onClick={() => setShowReadmeInPreview(!showReadmeInPreview)}
+                          className={`px-3 py-1.5 rounded-lg text-sm font-medium flex items-center gap-1.5 cursor-pointer transition-colors ${
+                            showReadmeInPreview 
+                              ? 'bg-[#00FF41] text-black' 
+                              : 'bg-white/5 text-white/60 hover:text-white hover:bg-white/10'
+                          }`}
+                        >
+                          <FileText className="w-4 h-4" />
+                          README
+                        </span>
+                        {/* Chart Button */}
+                        <span className="px-3 py-1.5 rounded-lg bg-[#00FF41]/10 text-[#00FF41] text-sm font-medium flex items-center gap-1.5 cursor-pointer hover:bg-[#00FF41]/20 transition-colors">
+                          <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M7 12l3-3 3 3 4-4M8 21l4-4 4 4M3 4h18M4 4h16v12a1 1 0 01-1 1H5a1 1 0 01-1-1V4z" />
+                          </svg>
+                          Chart
+                        </span>
+                      </div>
+                    </div>
+                  </div>
+
+                  {/* README Overlay Panel */}
+                  {showReadmeInPreview && (
+                    <div className="border-b border-white/5 bg-[#111]/95 backdrop-blur-sm">
+                      <div className="max-w-4xl mx-auto px-6 py-6">
+                        <div className="flex items-center justify-between mb-4">
+                          <h3 className="text-lg font-semibold text-white flex items-center gap-2">
+                            <FileText className="w-5 h-5 text-[#00FF41]" />
+                            README.md
+                          </h3>
+                          <button 
+                            onClick={() => setShowReadmeInPreview(false)}
+                            className="text-white/40 hover:text-white transition-colors p-1"
+                          >
+                            <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+                            </svg>
+                          </button>
+                        </div>
+                        {readmeContent ? (
+                          <div 
+                            className="readme-content prose prose-invert prose-sm max-w-none max-h-[50vh] overflow-y-auto pr-2 
+                              prose-headings:text-white prose-headings:font-semibold prose-headings:border-b prose-headings:border-white/10 prose-headings:pb-2
+                              prose-p:text-white/60 prose-a:text-[#00FF41] prose-strong:text-white
+                              prose-code:text-[#00FF41] prose-code:bg-white/5 prose-code:px-1.5 prose-code:py-0.5 prose-code:rounded
+                              prose-pre:bg-white/5 prose-pre:border prose-pre:border-white/10
+                              prose-img:rounded-lg prose-img:max-w-full
+                              prose-ul:text-white/60 prose-ol:text-white/60 prose-li:text-white/60"
+                            dangerouslySetInnerHTML={{ __html: readmeContent }}
+                          />
+                        ) : (
+                          <p className="text-white/30 text-sm text-center py-8">No README available for this repository</p>
+                        )}
+                      </div>
+                    </div>
+                  )}
+
+                  {/* Hero Section */}
+                  <div className="relative py-20 px-8 text-center border-b border-white/5">
+                    {/* Background - Use AI hero banner if available */}
+                    <div className="absolute inset-0 overflow-hidden">
+                      {generatedSiteContent?.images?.heroBanner ? (
+                        <>
+                          <img 
+                            src={generatedSiteContent.images.heroBanner} 
+                            alt=""
+                            className="absolute inset-0 w-full h-full object-cover opacity-20"
+                          />
+                          <div className="absolute inset-0 bg-gradient-to-b from-[#0a0a0a] via-[#0a0a0a]/80 to-[#0a0a0a]" />
+                        </>
+                      ) : (
+                        <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-[600px] h-[600px] bg-[#00FF41]/5 rounded-full blur-[120px]" />
+                      )}
+                    </div>
+                    
+                    <div className="relative z-10 max-w-3xl mx-auto">
+                      {/* Logo */}
+                      {tokenLogoPreview ? (
+                        <img 
+                          src={tokenLogoPreview} 
+                          alt={tokenName}
+                          className="w-28 h-28 rounded-2xl mx-auto mb-8 border border-white/10 shadow-2xl shadow-[#00FF41]/20"
+                        />
+                      ) : (
+                        <div className="w-28 h-28 rounded-2xl mx-auto mb-8 border border-white/10 bg-gradient-to-br from-[#00FF41]/20 to-transparent flex items-center justify-center">
+                          <span className="text-4xl font-bold text-[#00FF41]">{tokenSymbol?.[0] || '?'}</span>
+                        </div>
+                      )}
+                      
+                      {/* AI Generated Tagline */}
+                      {generatedSiteContent?.tagline && (
+                        <p className="text-[#00FF41] text-sm font-medium tracking-wider uppercase mb-4">
+                          {generatedSiteContent.tagline}
+                        </p>
+                      )}
+                      
+                      <h1 className="text-5xl font-bold text-white mb-3">{tokenName || 'Project'}</h1>
+                      <p className="text-2xl text-[#00FF41] font-mono mb-6">${tokenSymbol || 'SYMBOL'}</p>
+                      
+                      {/* AI Generated Description or fallback */}
+                      <p className="text-lg text-white/70 max-w-2xl mx-auto mb-10 leading-relaxed">
+                        {generatedSiteContent?.heroDescription || tokenDescription || 'Token description will appear here'}
+                      </p>
+                      
+                      {/* Trade Button */}
+                      <button className="px-10 py-4 bg-[#00FF41] text-black font-bold rounded-xl text-lg hover:bg-[#00FF41]/90 transition-all hover:shadow-[0_0_40px_rgba(0,255,65,0.3)]">
+                        {generatedSiteContent?.callToAction || 'Trade on Pump.fun'}
+                      </button>
+                    </div>
+                  </div>
+
+                  {/* Product Screenshots Gallery - AI Analyzed from README */}
+                  {generatedSiteContent?.images?.screenshots && generatedSiteContent.images.screenshots.length > 0 && (
+                    <div className="py-16 px-8 border-b border-white/5">
+                      <div className="max-w-5xl mx-auto">
+                        <h2 className="text-2xl font-bold text-white text-center mb-4">See It In Action</h2>
+                        <p className="text-white/50 text-center mb-10">Screenshots and demos from the project</p>
+                        <div className={`grid gap-4 ${
+                          generatedSiteContent.images.screenshots.length === 1 
+                            ? 'max-w-3xl mx-auto' 
+                            : generatedSiteContent.images.screenshots.length === 2 
+                              ? 'md:grid-cols-2' 
+                              : 'md:grid-cols-2 lg:grid-cols-3'
+                        }`}>
+                          {generatedSiteContent.images.screenshots.map((screenshot, index) => (
+                            <div 
+                              key={index}
+                              className="relative group rounded-xl overflow-hidden border border-white/10 bg-white/[0.02] hover:border-[#00FF41]/30 transition-all"
+                            >
+                              <img 
+                                src={screenshot} 
+                                alt={`Screenshot ${index + 1}`}
+                                className="w-full h-auto object-cover"
+                                onError={(e) => {
+                                  // Hide broken images
+                                  (e.target as HTMLElement).parentElement!.style.display = 'none';
+                                }}
+                              />
+                              <div className="absolute inset-0 bg-gradient-to-t from-black/60 via-transparent to-transparent opacity-0 group-hover:opacity-100 transition-opacity" />
+                            </div>
+                          ))}
+                        </div>
+                      </div>
+                    </div>
+                  )}
+
+                  {/* Features Section - AI Generated */}
+                  {generatedSiteContent?.features && generatedSiteContent.features.length > 0 && (
+                    <div className="py-16 px-8 border-b border-white/5">
+                      <div className="max-w-4xl mx-auto">
+                        <h2 className="text-2xl font-bold text-white text-center mb-12">Key Features</h2>
+                        <div className={`grid gap-6 ${
+                          generatedSiteContent.features.length === 4 
+                            ? 'md:grid-cols-2' 
+                            : generatedSiteContent.features.length === 2 
+                              ? 'md:grid-cols-2 max-w-2xl mx-auto' 
+                              : 'md:grid-cols-3'
+                        }`}>
+                          {generatedSiteContent.features.map((feature, index) => (
+                            <div key={index} className="p-6 rounded-2xl border border-white/5 bg-white/[0.02]">
+                              <div className="w-12 h-12 rounded-xl bg-[#00FF41]/10 flex items-center justify-center mb-4">
+                                {feature.icon === 'code' && <svg className="w-6 h-6 text-[#00FF41]" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M10 20l4-16m4 4l4 4-4 4M6 16l-4-4 4-4" /></svg>}
+                                {feature.icon === 'shield' && <svg className="w-6 h-6 text-[#00FF41]" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12l2 2 4-4m5.618-4.016A11.955 11.955 0 0112 2.944a11.955 11.955 0 01-8.618 3.04A12.02 12.02 0 003 9c0 5.591 3.824 10.29 9 11.622 5.176-1.332 9-6.03 9-11.622 0-1.042-.133-2.052-.382-3.016z" /></svg>}
+                                {feature.icon === 'zap' && <svg className="w-6 h-6 text-[#00FF41]" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 10V3L4 14h7v7l9-11h-7z" /></svg>}
+                                {feature.icon === 'globe' && <Globe className="w-6 h-6 text-[#00FF41]" />}
+                                {feature.icon === 'users' && <Users className="w-6 h-6 text-[#00FF41]" />}
+                                {feature.icon === 'lock' && <svg className="w-6 h-6 text-[#00FF41]" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 15v2m-6 4h12a2 2 0 002-2v-6a2 2 0 00-2-2H6a2 2 0 00-2 2v6a2 2 0 002 2zm10-10V7a4 4 0 00-8 0v4h8z" /></svg>}
+                                {feature.icon === 'rocket' && <svg className="w-6 h-6 text-[#00FF41]" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15.59 14.37a6 6 0 01-5.84 7.38v-4.8m5.84-2.58a14.98 14.98 0 006.16-12.12A14.98 14.98 0 009.631 8.41m5.96 5.96a14.926 14.926 0 01-5.841 2.58m-.119-8.54a6 6 0 00-7.381 5.84h4.8m2.581-5.84a14.927 14.927 0 00-2.58 5.84m2.699 2.7c-.103.021-.207.041-.311.06a15.09 15.09 0 01-2.448-2.448 14.9 14.9 0 01.06-.312m-2.24 2.39a4.493 4.493 0 00-1.757 4.306 4.493 4.493 0 004.306-1.758M16.5 9a1.5 1.5 0 11-3 0 1.5 1.5 0 013 0z" /></svg>}
+                                {feature.icon === 'star' && <Star className="w-6 h-6 text-[#00FF41]" />}
+                                {feature.icon === 'heart' && <svg className="w-6 h-6 text-[#00FF41]" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4.318 6.318a4.5 4.5 0 000 6.364L12 20.364l7.682-7.682a4.5 4.5 0 00-6.364-6.364L12 7.636l-1.318-1.318a4.5 4.5 0 00-6.364 0z" /></svg>}
+                                {feature.icon === 'cpu' && <svg className="w-6 h-6 text-[#00FF41]" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 3v2m6-2v2M9 19v2m6-2v2M5 9H3m2 6H3m18-6h-2m2 6h-2M7 19h10a2 2 0 002-2V7a2 2 0 00-2-2H7a2 2 0 00-2 2v10a2 2 0 002 2zM9 9h6v6H9V9z" /></svg>}
+                              </div>
+                              <h3 className="text-lg font-semibold text-white mb-2">{feature.title}</h3>
+                              <p className="text-white/60 text-sm">{feature.description}</p>
+                            </div>
+                          ))}
+                        </div>
+                      </div>
+                    </div>
+                  )}
+
+                  {/* Support Development Section */}
+                  <div className="py-16 px-8 border-b border-white/5">
+                    <div className="max-w-2xl mx-auto text-center">
+                      <h2 className="text-2xl font-bold text-white mb-6">Support Development</h2>
+                      <p className="text-white/70 text-lg leading-relaxed">
+                        ${tokenSymbol || 'This token'} was created to support the ongoing development of{' '}
+                        {selectedEntity ? (
+                          <a 
+                            href={`https://github.com/${selectedEntity.owner.login}`}
+                            target="_blank"
+                            rel="noopener noreferrer"
+                            className="text-[#00FF41] font-semibold hover:underline"
+                          >
+                            {selectedEntity.owner.login}'s
+                          </a>
+                        ) : ' this '}{' '}
+                        open source project. By trading, you're directly contributing to the developer behind this repository.
+                        {selectedEntity && (
+                          <span className="block mt-4 text-white/50 text-sm">
+                            Note: The token deployer may not be <a href={`https://github.com/${selectedEntity.owner.login}`} target="_blank" rel="noopener noreferrer" className="text-white/70 hover:text-[#00FF41]">{selectedEntity.owner.login}</a>. All creator fees are held in escrow and can only be claimed by the verified repository owner via GitHub/GitLab OAuth.
+                          </span>
+                        )}
+                      </p>
+                    </div>
+                  </div>
+                  
+                  {/* Repo Info Section */}
+                  {selectedEntity && (
+                    <div className="py-16 px-8 border-b border-white/5">
+                      <div className="max-w-2xl mx-auto">
+                        <h2 className="text-2xl font-bold text-white mb-8 text-center">Repository</h2>
+                        <a 
+                          href={selectedEntity.html_url}
+                          target="_blank"
+                          rel="noopener noreferrer"
+                          className="block p-6 rounded-2xl border border-white/10 bg-white/[0.02] hover:border-[#00FF41]/30 hover:bg-white/[0.04] transition-all cursor-pointer group"
+                        >
+                          <div className="flex items-center gap-4 mb-4">
+                            <img src={selectedEntity.owner.avatar_url} alt="" className="w-12 h-12 rounded-full" />
+                            <div className="flex-1">
+                              <span className="text-white font-semibold text-lg group-hover:text-[#00FF41] transition-colors flex items-center gap-2">
+                                {selectedEntity.full_name}
+                                <ExternalLink className="w-4 h-4 opacity-0 group-hover:opacity-100 transition-opacity" />
+                              </span>
+                              <div className="flex items-center gap-4 text-sm text-white/40 mt-1">
+                                <span className="flex items-center gap-1">
+                                  <Star className="w-4 h-4" /> {selectedEntity.stargazers_count.toLocaleString()}
+                                </span>
+                                <span className="flex items-center gap-1">
+                                  <GitFork className="w-4 h-4" /> {selectedEntity.forks_count.toLocaleString()}
+                                </span>
+                                {selectedEntity.language && (
+                                  <span>{selectedEntity.language}</span>
+                                )}
+                              </div>
+                            </div>
+                          </div>
+                          <p className="text-white/60">{selectedEntity.description}</p>
+                        </a>
+                      </div>
+                    </div>
+                  )}
+                  
+                  {/* Footer */}
+                  <div className="py-10 px-8 text-center">
+                    <p className="text-white/30 text-sm">
+                      Powered by <span className="text-[#00FF41] font-semibold">GitUp.fun</span>
+                    </p>
+                  </div>
+                </div>
+              )}
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }

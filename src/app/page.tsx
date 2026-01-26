@@ -176,56 +176,156 @@ export default function HomePage() {
         </div>
       </section>
 
-      {/* How It Works - Single clean section */}
+      {/* How It Works - Interactive Comic Walkthrough */}
       <section className="relative py-24 border-t border-white/5">
-        <div className="max-w-5xl mx-auto px-6">
+        <div className="max-w-6xl mx-auto px-6">
           <div className="text-center mb-16">
             <h2 className="text-3xl md:text-4xl font-bold text-white mb-4">
               How It Works
             </h2>
-            <p className="text-white/70">Three simple steps</p>
+            <p className="text-white/70">Four simple steps to tokenize any repo</p>
           </div>
 
-          <div className="grid md:grid-cols-3 gap-8">
-            {/* Step 1 */}
-            <div className="relative group h-full">
-              <div className="absolute inset-0 bg-gradient-to-b from-[#00FF41]/10 to-transparent rounded-2xl opacity-0 group-hover:opacity-100 transition-opacity duration-500" />
-              <div className="relative p-8 rounded-2xl border border-white/5 bg-white/[0.02] hover:border-[#00FF41]/20 transition-colors h-full">
-                <div className="w-12 h-12 rounded-xl bg-[#00FF41]/10 flex items-center justify-center mb-6">
-                  <span className="text-[#00FF41] font-mono font-bold">01</span>
+          <div className="grid md:grid-cols-2 lg:grid-cols-4 gap-6">
+            {/* Step 1 - Connect Wallet */}
+            <div className="relative h-full">
+              <div className="relative h-full flex flex-col rounded-2xl border border-white/5 bg-white/[0.02] overflow-hidden">
+                {/* Comic Image */}
+                <div className="relative aspect-square overflow-hidden">
+                  <img 
+                    src="/Comic/One.png" 
+                    alt="Connect Wallet" 
+                    className="w-full h-full object-cover"
+                  />
+                  <div className="absolute inset-0 bg-gradient-to-t from-[#0a0a0a] via-transparent to-transparent" />
+                  {/* Step Number Badge */}
+                  <div className="absolute top-4 left-4 w-10 h-10 rounded-xl bg-[#00FF41] flex items-center justify-center shadow-lg shadow-[#00FF41]/30">
+                    <span className="text-black font-mono font-bold text-lg">1</span>
+                  </div>
                 </div>
-                <h3 className="text-xl font-semibold text-white mb-3">Find & Launch</h3>
-                <p className="text-white/70 text-sm leading-relaxed">
-                  Search any GitHub or GitLab repo. Tokenize it on pump.fun in seconds — even if you&apos;re not the owner.
-                </p>
+                {/* Content */}
+                <div className="p-5 flex-1 flex flex-col">
+                  <h3 className="text-lg font-semibold text-white mb-2">Connect Wallet</h3>
+                  <p className="text-white/60 text-sm leading-relaxed">
+                    Click &quot;Connect Wallet&quot; and approve the connection request
+                  </p>
+                </div>
               </div>
             </div>
 
-            {/* Step 2 */}
-            <div className="relative group h-full">
-              <div className="absolute inset-0 bg-gradient-to-b from-[#00FF41]/10 to-transparent rounded-2xl opacity-0 group-hover:opacity-100 transition-opacity duration-500" />
-              <div className="relative p-8 rounded-2xl border border-white/5 bg-white/[0.02] hover:border-[#00FF41]/20 transition-colors h-full">
-                <div className="w-12 h-12 rounded-xl bg-[#00FF41]/10 flex items-center justify-center mb-6">
-                  <span className="text-[#00FF41] font-mono font-bold">02</span>
+            {/* Step 2 - Select Repository */}
+            <div className="relative h-full">
+              <div className="relative h-full flex flex-col rounded-2xl border border-white/5 bg-white/[0.02] overflow-hidden">
+                {/* Comic Image */}
+                <div className="relative aspect-square overflow-hidden">
+                  <img 
+                    src="/Comic/Two.png" 
+                    alt="Select Repository" 
+                    className="w-full h-full object-cover"
+                  />
+                  <div className="absolute inset-0 bg-gradient-to-t from-[#0a0a0a] via-transparent to-transparent" />
+                  {/* Step Number Badge */}
+                  <div className="absolute top-4 left-4 w-10 h-10 rounded-xl bg-[#00FF41] flex items-center justify-center shadow-lg shadow-[#00FF41]/30">
+                    <span className="text-black font-mono font-bold text-lg">2</span>
+                  </div>
                 </div>
-                <h3 className="text-xl font-semibold text-white mb-3">Fees Escrow</h3>
-                <p className="text-white/70 text-sm leading-relaxed">
-                  Creator fees accumulate in a secure escrow wallet. They wait there until the real owner shows up.
-                </p>
+                {/* Content */}
+                <div className="p-5 flex-1 flex flex-col">
+                  <h3 className="text-lg font-semibold text-white mb-2">Select Repository</h3>
+                  <p className="text-white/60 text-sm leading-relaxed">
+                    Search any public repo by URL or connect GitHub/GitLab to pick your own
+                  </p>
+                </div>
               </div>
             </div>
 
-            {/* Step 3 */}
-            <div className="relative group h-full">
-              <div className="absolute inset-0 bg-gradient-to-b from-[#00FF41]/10 to-transparent rounded-2xl opacity-0 group-hover:opacity-100 transition-opacity duration-500" />
-              <div className="relative p-8 rounded-2xl border border-white/5 bg-white/[0.02] hover:border-[#00FF41]/20 transition-colors h-full">
-                <div className="w-12 h-12 rounded-xl bg-[#00FF41]/10 flex items-center justify-center mb-6">
-                  <span className="text-[#00FF41] font-mono font-bold">03</span>
+            {/* Step 3 - Configure Token */}
+            <div className="relative h-full">
+              <div className="relative h-full flex flex-col rounded-2xl border border-white/5 bg-white/[0.02] overflow-hidden">
+                {/* Comic Image */}
+                <div className="relative aspect-square overflow-hidden">
+                  <img 
+                    src="/Comic/Three.png" 
+                    alt="Configure Token" 
+                    className="w-full h-full object-cover"
+                  />
+                  <div className="absolute inset-0 bg-gradient-to-t from-[#0a0a0a] via-transparent to-transparent" />
+                  {/* Step Number Badge */}
+                  <div className="absolute top-4 left-4 w-10 h-10 rounded-xl bg-[#00FF41] flex items-center justify-center shadow-lg shadow-[#00FF41]/30">
+                    <span className="text-black font-mono font-bold text-lg">3</span>
+                  </div>
                 </div>
-                <h3 className="text-xl font-semibold text-white mb-3">Verify & Claim</h3>
-                <p className="text-white/70 text-sm leading-relaxed">
-                  Repo owner? Verify via GitHub or GitLab OAuth. Claim all accumulated fees instantly.
-                </p>
+                {/* Content */}
+                <div className="p-5 flex-1 flex flex-col">
+                  <h3 className="text-lg font-semibold text-white mb-2">Configure Token</h3>
+                  <p className="text-white/60 text-sm leading-relaxed">
+                    Set your token name, symbol, and upload custom artwork
+                  </p>
+                </div>
+              </div>
+            </div>
+
+            {/* Step 4 - Launch */}
+            <div className="relative h-full">
+              <div className="relative h-full flex flex-col rounded-2xl border border-white/5 bg-white/[0.02] overflow-hidden">
+                {/* Comic Image */}
+                <div className="relative aspect-square overflow-hidden">
+                  <img 
+                    src="/Comic/Four.png" 
+                    alt="Launch" 
+                    className="w-full h-full object-cover"
+                  />
+                  <div className="absolute inset-0 bg-gradient-to-t from-[#0a0a0a] via-transparent to-transparent" />
+                  {/* Step Number Badge */}
+                  <div className="absolute top-4 left-4 w-10 h-10 rounded-xl bg-[#00FF41] flex items-center justify-center shadow-lg shadow-[#00FF41]/30">
+                    <span className="text-black font-mono font-bold text-lg">4</span>
+                  </div>
+                </div>
+                {/* Content */}
+                <div className="p-5 flex-1 flex flex-col">
+                  <h3 className="text-lg font-semibold text-white mb-2">Launch</h3>
+                  <p className="text-white/60 text-sm leading-relaxed">
+                    Review details and sign the transaction to deploy on pump.fun
+                  </p>
+                </div>
+              </div>
+            </div>
+          </div>
+
+          {/* Escrow & Claim - Combined Card with Image */}
+          <div className="mt-12">
+            <div className="relative max-w-2xl mx-auto">
+              <div className="relative rounded-2xl border border-white/5 bg-white/[0.02] overflow-hidden">
+                <div className="flex flex-col md:flex-row">
+                  {/* Comic Image */}
+                  <div className="relative md:w-1/2 aspect-square md:aspect-auto overflow-hidden">
+                    <img 
+                      src="/Comic/Five.png" 
+                      alt="Escrow & Claim" 
+                      className="w-full h-full object-cover"
+                    />
+                    <div className="absolute inset-0 bg-gradient-to-r from-transparent to-[#0a0a0a]/80 hidden md:block" />
+                    <div className="absolute inset-0 bg-gradient-to-t from-[#0a0a0a] to-transparent md:hidden" />
+                  </div>
+                  {/* Content */}
+                  <div className="md:w-1/2 p-8 flex flex-col justify-center">
+                    <h3 className="text-2xl font-bold text-white mb-4">Escrow & Claim</h3>
+                    <div className="space-y-4">
+                      <div>
+                        <h4 className="text-[#00FF41] font-semibold mb-1">Fees Escrow</h4>
+                        <p className="text-white/60 text-sm leading-relaxed">
+                          Creator fees accumulate in a secure escrow wallet. They wait there until the real repo owner verifies and claims them.
+                        </p>
+                      </div>
+                      <div>
+                        <h4 className="text-[#00FF41] font-semibold mb-1">Verify & Claim</h4>
+                        <p className="text-white/60 text-sm leading-relaxed">
+                          Repo owner? Connect via GitHub or GitLab OAuth to verify ownership and instantly claim all accumulated creator fees.
+                        </p>
+                      </div>
+                    </div>
+                  </div>
+                </div>
               </div>
             </div>
           </div>

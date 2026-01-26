@@ -56,6 +56,19 @@ interface TokenSiteData {
   repoOwner?: string;
   repoStars?: number;
   repoForks?: number;
+  // AI-generated content (for project description only)
+  aiContent?: {
+    tagline: string;
+    heroDescription: string;
+    features: Array<{ title: string; description: string; icon: string }>;
+    useCases: string[];
+    callToAction: string;
+    images?: {
+      heroBanner?: string;
+      screenshots: string[];
+      featureImages: string[];
+    };
+  };
 }
 
 export default function TokenSitePage() {
@@ -123,13 +136,87 @@ export default function TokenSitePage() {
     <div className="min-h-screen bg-[#0a0a0a] relative">
       <StarParticles />
       
+      {/* Top Navigation Bar */}
+      <nav className="sticky top-0 z-50 bg-[#0a0a0a]/90 backdrop-blur-md border-b border-white/5">
+        <div className="max-w-4xl mx-auto px-6 py-3 flex items-center justify-between">
+          {/* Logo & Name */}
+          <div className="flex items-center gap-3">
+            {siteData.image ? (
+              <img src={siteData.image} alt="" className="w-8 h-8 rounded-lg" />
+            ) : (
+              <div className="w-8 h-8 rounded-lg bg-[#00FF41]/20 flex items-center justify-center">
+                <span className="text-sm font-bold text-[#00FF41]">{siteData.symbol?.charAt(0)}</span>
+              </div>
+            )}
+            <span className="font-semibold text-white">{siteData.name}</span>
+            <span className="text-[#00FF41] font-mono text-sm">${siteData.symbol}</span>
+          </div>
+          
+          {/* Social Links */}
+          <div className="flex items-center gap-2">
+            {siteData.twitter && (
+              <a
+                href={siteData.twitter.startsWith('http') ? siteData.twitter : `https://twitter.com/${siteData.twitter.replace('@', '')}`}
+                target="_blank"
+                rel="noopener noreferrer"
+                className="p-2 rounded-lg bg-white/5 text-white/60 hover:text-white hover:bg-white/10 transition-colors"
+              >
+                <Twitter className="w-4 h-4" />
+              </a>
+            )}
+            {siteData.telegram && (
+              <a
+                href={siteData.telegram.startsWith('http') ? siteData.telegram : `https://t.me/${siteData.telegram.replace('@', '')}`}
+                target="_blank"
+                rel="noopener noreferrer"
+                className="p-2 rounded-lg bg-white/5 text-white/60 hover:text-white hover:bg-white/10 transition-colors"
+              >
+                <Send className="w-4 h-4" />
+              </a>
+            )}
+            {siteData.website && (
+              <a
+                href={siteData.website}
+                target="_blank"
+                rel="noopener noreferrer"
+                className="p-2 rounded-lg bg-white/5 text-white/60 hover:text-white hover:bg-white/10 transition-colors"
+              >
+                <Globe className="w-4 h-4" />
+              </a>
+            )}
+            {siteData.github && (
+              <a
+                href={siteData.github}
+                target="_blank"
+                rel="noopener noreferrer"
+                className="p-2 rounded-lg bg-white/5 text-white/60 hover:text-white hover:bg-white/10 transition-colors"
+              >
+                <Github className="w-4 h-4" />
+              </a>
+            )}
+            {/* Chart Button */}
+            <a
+              href={`https://pump.fun/coin/${mint}`}
+              target="_blank"
+              rel="noopener noreferrer"
+              className="px-3 py-1.5 rounded-lg bg-[#00FF41]/10 text-[#00FF41] text-sm font-medium flex items-center gap-1.5 hover:bg-[#00FF41]/20 transition-colors"
+            >
+              <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M7 12l3-3 3 3 4-4M8 21l4-4 4 4M3 4h18M4 4h16v12a1 1 0 01-1 1H5a1 1 0 01-1-1V4z" />
+              </svg>
+              Chart
+            </a>
+          </div>
+        </div>
+      </nav>
+      
       {/* Hero Section */}
       <div className="relative">
-        {/* Banner */}
-        {siteData.banner ? (
+        {/* Banner - Use AI hero banner if available, otherwise manual banner */}
+        {siteData.aiContent?.images?.heroBanner || siteData.banner ? (
           <div className="h-64 md:h-80 w-full overflow-hidden">
             <img 
-              src={siteData.banner} 
+              src={siteData.aiContent?.images?.heroBanner || siteData.banner} 
               alt="Banner" 
               className="w-full h-full object-cover opacity-60"
             />
@@ -250,6 +337,42 @@ export default function TokenSitePage() {
                 {siteData.repoForks}
               </span>
             )}
+          </div>
+        )}
+        
+        {/* Screenshots Gallery - AI Analyzed from README */}
+        {siteData.aiContent?.images?.screenshots && siteData.aiContent.images.screenshots.length > 0 && (
+          <div className="mb-12">
+            <h2 className="text-xl font-bold text-white mb-6 flex items-center gap-2">
+              <svg className="w-5 h-5 text-[#00FF41]" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 16l4.586-4.586a2 2 0 012.828 0L16 16m-2-2l1.586-1.586a2 2 0 012.828 0L20 14m-6-6h.01M6 20h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 0 002 2z" />
+              </svg>
+              Screenshots
+            </h2>
+            <div className={`grid gap-4 ${
+              siteData.aiContent.images.screenshots.length === 1 
+                ? 'max-w-3xl' 
+                : siteData.aiContent.images.screenshots.length === 2 
+                  ? 'md:grid-cols-2' 
+                  : 'md:grid-cols-2 lg:grid-cols-3'
+            }`}>
+              {siteData.aiContent.images.screenshots.map((screenshot, index) => (
+                <div 
+                  key={index}
+                  className="relative group rounded-xl overflow-hidden border border-white/10 bg-white/[0.02] hover:border-[#00FF41]/30 transition-all"
+                >
+                  <img 
+                    src={screenshot} 
+                    alt={`Screenshot ${index + 1}`}
+                    className="w-full h-auto object-cover"
+                    onError={(e) => {
+                      (e.target as HTMLElement).parentElement!.style.display = 'none';
+                    }}
+                  />
+                  <div className="absolute inset-0 bg-gradient-to-t from-black/60 via-transparent to-transparent opacity-0 group-hover:opacity-100 transition-opacity" />
+                </div>
+              ))}
+            </div>
           </div>
         )}
         
