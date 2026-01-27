@@ -333,6 +333,38 @@ export default function LaunchPage() {
     }
   };
 
+  // Fetch user's own GitLab repos
+  const fetchMyGitLabRepos = async () => {
+    if (!session) return;
+    setIsSearching(true);
+    
+    try {
+      const response = await fetch('/api/gitlab/repos');
+      const data = await response.json();
+      setSearchResults(data.repos || []);
+    } catch (error) {
+      console.error('Fetch GitLab repos error:', error);
+    } finally {
+      setIsSearching(false);
+    }
+  };
+
+  // Search GitLab repos
+  const searchGitLabRepos = async () => {
+    if (!searchQuery.trim()) return;
+    setIsSearching(true);
+    
+    try {
+      const response = await fetch(`/api/gitlab/search?q=${encodeURIComponent(searchQuery)}`);
+      const data = await response.json();
+      setSearchResults(data.repos || []);
+    } catch (error) {
+      console.error('GitLab search error:', error);
+    } finally {
+      setIsSearching(false);
+    }
+  };
+
   // Check what's needed based on launch mode
   const needsAuth = launchMode === 'own-repo' || launchMode === 'own-gitlab';
   const isReadyToContinue = needsAuth ? (session && connected) : connected;
@@ -348,8 +380,8 @@ export default function LaunchPage() {
       setStep('search');
       fetchMyRepos();
     } else if (mode === 'own-gitlab') {
-      // TODO: Fetch user's GitLab repos
       setStep('search');
+      fetchMyGitLabRepos();
     } else {
       setStep('search');
     }
@@ -791,8 +823,8 @@ export default function LaunchPage() {
                 setStep('search');
                 fetchMyRepos();
               } else if (launchMode === 'own-gitlab') {
-                // TODO: Fetch user's GitLab repos
                 setStep('search');
+                fetchMyGitLabRepos();
               } else {
                 setStep('search');
               }
@@ -817,17 +849,23 @@ export default function LaunchPage() {
 
       <div className="text-center mb-8">
         <h2 className="text-2xl font-bold text-white mb-2">
-          {launchMode === 'own-repo' ? 'Select Your Repository' : 'Search Any Repository'}
+          {launchMode === 'own-repo' || launchMode === 'own-gitlab' 
+            ? 'Select Your Repository' 
+            : 'Search Any Repository'}
         </h2>
         <p className="text-white/50 text-sm">
           {launchMode === 'own-repo' 
-            ? 'Choose from your GitHub repositories' 
+            ? 'Choose from your GitHub repositories'
+            : launchMode === 'own-gitlab'
+            ? 'Choose from your GitLab repositories'
+            : launchMode === 'other-gitlab'
+            ? 'Search for any public GitLab repository to tokenize'
             : 'Search for any public GitHub repository to tokenize'}
         </p>
       </div>
 
       {/* Search bar for other repos */}
-      {launchMode === 'other-repo' && (
+      {(launchMode === 'other-repo' || launchMode === 'other-gitlab') && (
         <div className="flex gap-3 mb-6">
           <div className="flex-1 relative">
             <Search className="absolute left-4 top-1/2 -translate-y-1/2 w-5 h-5 text-white/30" />
@@ -835,13 +873,13 @@ export default function LaunchPage() {
               type="text"
               value={searchQuery}
               onChange={(e) => setSearchQuery(e.target.value)}
-              onKeyDown={(e) => e.key === 'Enter' && searchRepos()}
-              placeholder="Search GitHub repositories..."
+              onKeyDown={(e) => e.key === 'Enter' && (launchMode === 'other-gitlab' ? searchGitLabRepos() : searchRepos())}
+              placeholder={launchMode === 'other-gitlab' ? 'Search GitLab repositories...' : 'Search GitHub repositories...'}
               className="w-full pl-12 pr-4 py-3 bg-white/[0.03] border border-white/10 rounded-xl text-white placeholder:text-white/30 focus:outline-none focus:border-[#00FF41]/50"
             />
           </div>
           <button
-            onClick={searchRepos}
+            onClick={() => launchMode === 'other-gitlab' ? searchGitLabRepos() : searchRepos()}
             disabled={isSearching}
             className="px-6 py-3 bg-[#00FF41] text-black font-semibold rounded-xl hover:bg-[#00FF41]/90 transition-all disabled:opacity-50"
           >
@@ -860,7 +898,7 @@ export default function LaunchPage() {
         ) : searchResults.length === 0 ? (
           <div className="text-center py-12">
             <p className="text-white/40 text-sm">
-              {launchMode === 'own-repo' 
+              {launchMode === 'own-repo' || launchMode === 'own-gitlab'
                 ? 'No repositories found' 
                 : 'Search for a repository to get started'}
             </p>
