@@ -61,7 +61,7 @@ function extractImagesFromMarkdown(markdown: string, repoOwner: string, repoName
     images.push(url);
   }
   
-  // Filter out badges and small icons (usually contain shields.io, badge, etc.)
+  // Filter out badges, avatars, and small icons
   const filteredImages = images.filter(url => {
     const lowerUrl = url.toLowerCase();
     return !lowerUrl.includes('shields.io') && 
@@ -69,7 +69,11 @@ function extractImagesFromMarkdown(markdown: string, repoOwner: string, repoName
            !lowerUrl.includes('travis-ci') &&
            !lowerUrl.includes('codecov') &&
            !lowerUrl.includes('github.com/') && // Skip GitHub-specific badges
-           !lowerUrl.includes('.svg'); // Usually badges
+           !lowerUrl.includes('avatars.githubusercontent.com') && // Skip GitHub avatars
+           !lowerUrl.includes('star-history') && // Skip star history charts
+           !lowerUrl.includes('.svg') && // SVG not supported by Claude vision
+           !lowerUrl.includes('s=48') && // Small GitHub avatar thumbnails
+           !lowerUrl.includes('size='); // Size params usually mean small images
   });
   
   // Return unique images
@@ -96,6 +100,13 @@ async function fetchImageAsBase64(url: string): Promise<{ base64: string; mediaT
     // Map content type to Claude's expected format
     let mediaType = contentType.split(';')[0].trim();
     if (mediaType === 'image/jpg') mediaType = 'image/jpeg';
+    
+    // Claude only supports these formats
+    const supportedTypes = ['image/jpeg', 'image/png', 'image/gif', 'image/webp'];
+    if (!supportedTypes.includes(mediaType)) {
+      console.log(`Skipping unsupported image type: ${mediaType} for ${url}`);
+      return null;
+    }
     
     return { base64, mediaType };
   } catch (error) {
