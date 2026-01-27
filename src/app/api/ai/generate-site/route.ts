@@ -77,7 +77,7 @@ function extractImagesFromMarkdown(markdown: string, repoOwner: string, repoName
   });
   
   // Return unique images
-  return [...new Set(filteredImages)];
+  return Array.from(new Set(filteredImages));
 }
 
 // Convert image URL to base64 for Claude vision API
