@@ -33,7 +33,7 @@ interface GitLabProject {
 
 export async function GET() {
   try {
-    const session = await getServerSession(authOptions);
+    const session = await getServerSession(authOptions) as { accessToken?: string; provider?: string } | null;
 
     if (!session || !session.accessToken || session.provider !== 'gitlab') {
       return NextResponse.json({ error: 'Unauthorized - GitLab login required' }, { status: 401 });
