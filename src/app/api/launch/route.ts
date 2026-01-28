@@ -210,8 +210,31 @@ export async function GET(request: NextRequest) {
 
     const total = await prisma.tokenizedRepo.count();
 
+    // Map to the format expected by the explore page
+    const formattedLaunches = launches.map((launch) => ({
+      id: launch.id,
+      entityType: 'github' as const,
+      entityHandle: launch.repoFullName || '',
+      entityName: launch.repoName || '',
+      entityUrl: launch.repoUrl || '',
+      repoStars: launch.repoStars,
+      repoForks: launch.repoForks,
+      repoDescription: launch.repoDescription,
+      twitterFollowers: null,
+      tokenName: launch.tokenName || '',
+      tokenSymbol: launch.tokenSymbol || '',
+      tokenMint: launch.tokenMint || '',
+      tokenLogo: launch.logoUri,
+      launchedAt: launch.launchedAt?.toISOString() || new Date().toISOString(),
+      isClaimed: launch.isClaimed,
+      launcher: {
+        githubLogin: launch.User?.githubLogin || null,
+        githubAvatar: launch.User?.avatarUrl || null,
+      },
+    }));
+
     return NextResponse.json({
-      launches,
+      launches: formattedLaunches,
       total,
       hasMore: offset + limit < total,
     });

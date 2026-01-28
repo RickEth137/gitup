@@ -188,25 +188,41 @@ export async function createToken(
     throw new Error(`PumpPortal API error: ${errorText}`);
   }
 
-  // 4. Deserialize and sign transaction
+  // 4. Deserialize transaction
   const txData = await response.arrayBuffer();
   const tx = VersionedTransaction.deserialize(new Uint8Array(txData));
   
-  // Sign with mint keypair first
-  tx.sign([mintKeypair]);
+  // 5. Simulate transaction first to avoid Phantom warnings
+  // This helps Phantom predict the transaction outcome
+  try {
+    const simulation = await connection.simulateTransaction(tx, {
+      sigVerify: false, // Don't verify signatures during simulation
+    });
+    if (simulation.value.err) {
+      console.error('Transaction simulation failed:', simulation.value.err);
+      throw new Error(`Transaction simulation failed: ${JSON.stringify(simulation.value.err)}`);
+    }
+    console.log('Transaction simulation successful');
+  } catch (simError) {
+    console.warn('Simulation warning (may still succeed):', simError);
+  }
   
-  // Then sign with wallet
-  const signedTx = await wallet.signTransaction(tx);
+  // 6. Sign with wallet FIRST (Phantom requirement for multi-signer txs)
+  // This allows Phantom to properly simulate and display the transaction
+  const walletSignedTx = await wallet.signTransaction(tx);
+  
+  // 7. Then sign with mint keypair
+  walletSignedTx.sign([mintKeypair]);
 
-  // 5. Send transaction
-  const signature = await connection.sendRawTransaction(signedTx.serialize(), {
+  // 8. Send transaction
+  const signature = await connection.sendRawTransaction(walletSignedTx.serialize(), {
     skipPreflight: false,
     preflightCommitment: 'confirmed',
   });
 
   console.log('Transaction sent:', signature);
 
-  // 6. Confirm transaction
+  // 9. Confirm transaction
   const latestBlockhash = await connection.getLatestBlockhash();
   await connection.confirmTransaction({
     signature,

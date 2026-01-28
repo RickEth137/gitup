@@ -47,13 +47,15 @@ export default function ExplorePage() {
     fetchLaunches();
   }, []);
 
-  const filteredLaunches = launches.filter(
-    (launch) =>
-      launch.entityName.toLowerCase().includes(searchQuery.toLowerCase()) ||
-      launch.tokenName.toLowerCase().includes(searchQuery.toLowerCase()) ||
-      launch.tokenSymbol.toLowerCase().includes(searchQuery.toLowerCase()) ||
-      launch.entityHandle.toLowerCase().includes(searchQuery.toLowerCase())
-  );
+  const filteredLaunches = launches.filter((launch) => {
+    const query = searchQuery.toLowerCase();
+    return (
+      (launch.entityName?.toLowerCase() || '').includes(query) ||
+      (launch.tokenName?.toLowerCase() || '').includes(query) ||
+      (launch.tokenSymbol?.toLowerCase() || '').includes(query) ||
+      (launch.entityHandle?.toLowerCase() || '').includes(query)
+    );
+  });
 
   return (
     <div className="min-h-screen bg-[#0a0a0a] pt-24 pb-16 px-6">
