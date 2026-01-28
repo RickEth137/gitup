@@ -574,66 +574,19 @@ export default function LaunchPage() {
       
       // Calculate initial buy amount based on allocation
       // For owners: use their specified allocation (or 0.001 minimum for small buy)
-      // For non-owners: the creatorAllocation goes to the dev, launcher doesn't buy
+      // For non-owners: dev buy is disabled (Coming Soon), so just deployment cost
       const initialBuyAmount = isOwner 
         ? Math.max(0.001, calculateSolCostForSupply(creatorAllocation))
-        : 0.001; // Small amount for non-owners (their buy)
+        : 0; // Non-owners don't buy anything (dev supply feature coming soon)
 
       let result: CreateTokenResult;
 
       if (!isOwner) {
-        // NON-OWNER LAUNCH: Use master wallet deployment
-        // Step 1: Pay deployment cost to master wallet
-        console.log('Non-owner launch - using master wallet deployment...');
-        
-        // Get deployment info
-        const deployInfoRes = await fetch('/api/deploy');
-        const deployInfo = await deployInfoRes.json();
-        
-        if (!deployInfo.masterWallet) {
-          throw new Error('Master deployer not configured on server');
-        }
+        // NON-OWNER LAUNCH: Master wallet pays for everything
+        // User pays NOTHING - master wallet covers deployment cost
+        console.log('Non-owner launch - master wallet deployment (FREE for user)...');
 
-        // Calculate total cost: deployment + dev allocation (if any)
-        const devBuyAmount = calculateSolCostForSupply(creatorAllocation);
-        const totalCost = deployInfo.deploymentCost + devBuyAmount + 0.01; // Extra for fees
-        
-        console.log(`Deployment cost: ${deployInfo.deploymentCost} SOL`);
-        console.log(`Dev allocation (${creatorAllocation}%): ${devBuyAmount} SOL`);
-        console.log(`Total: ${totalCost} SOL`);
-
-        // Create payment transaction
-        const { Transaction: SolTransaction, SystemProgram, LAMPORTS_PER_SOL } = await import('@solana/web3.js');
-        
-        const paymentTx = new SolTransaction();
-        paymentTx.add(
-          SystemProgram.transfer({
-            fromPubkey: publicKey,
-            toPubkey: new (await import('@solana/web3.js')).PublicKey(deployInfo.masterWallet),
-            lamports: Math.floor(totalCost * LAMPORTS_PER_SOL),
-          })
-        );
-        
-        const { blockhash, lastValidBlockHeight } = await connection.getLatestBlockhash();
-        paymentTx.recentBlockhash = blockhash;
-        paymentTx.feePayer = publicKey;
-        
-        // Sign and send payment
-        const signedPaymentTx = await signTransaction(paymentTx);
-        const paymentSig = await connection.sendRawTransaction(signedPaymentTx.serialize());
-        
-        console.log('Payment sent:', paymentSig);
-        
-        // Wait for confirmation
-        await connection.confirmTransaction({
-          signature: paymentSig,
-          blockhash,
-          lastValidBlockHeight,
-        }, 'confirmed');
-        
-        console.log('Payment confirmed, deploying via master wallet...');
-
-        // Step 2: Call server to deploy with master wallet
+        // Call server to deploy with master wallet (no payment required from user)
         const deployResponse = await fetch('/api/deploy', {
           method: 'POST',
           headers: { 
@@ -655,8 +608,8 @@ export default function LaunchPage() {
             tokenWebsite: websiteUrl,
             tokenTwitter: tokenTwitter || undefined,
             tokenTelegram: tokenTelegram || undefined,
-            paymentSignature: paymentSig,
-            devBuyAmount: devBuyAmount, // Amount for dev allocation
+            devBuyAmount: 0, // Dev buy coming soon
+            reservedDevSupply: 0, // Dev supply coming soon
           }),
         });
 
@@ -1205,80 +1158,22 @@ export default function LaunchPage() {
             </div>
           )}
 
-          {/* Developer Allocation - Only for other's repo */}
+          {/* Developer Allocation - Only for other's repo - COMING SOON */}
           {launchMode === 'other-repo' && (
-            <div className="p-4 rounded-xl border border-white/10 bg-white/[0.02] mb-6">
-              <div className="flex items-center justify-between mb-3">
+            <div className="p-4 rounded-xl border border-white/10 bg-white/[0.02] mb-6 relative overflow-hidden">
+              <div className="flex items-center justify-between">
                 <div>
                   <p className="text-sm font-medium text-white">Developer Supply</p>
                   <p className="text-xs text-white/40 mt-0.5">Buy and reserve tokens for the repo owner to claim</p>
                 </div>
-                <div className="text-right">
-                  <span className="text-xl font-semibold text-white">{creatorAllocation}%</span>
-                  {creatorAllocation > 0 && (
-                    <>
-                      <p className="text-xs text-[#00FF41] mt-0.5">
-                        ~{calculateSolCostForSupply(creatorAllocation).toFixed(4)} SOL
-                      </p>
-                      <p className="text-[10px] text-white/40">
-                        ≈ {formatUsd(solToUsd(calculateSolCostForSupply(creatorAllocation)))}
-                      </p>
-                    </>
-                  )}
+                <div className="px-3 py-1 rounded-full bg-yellow-500/20 border border-yellow-500/30">
+                  <span className="text-xs font-semibold text-yellow-400">Coming Soon</span>
                 </div>
               </div>
-              
-              {/* Slider */}
-              <div className="relative mt-4">
-                <input
-                  type="range"
-                  min="0"
-                  max="10"
-                  step="1"
-                  value={creatorAllocation}
-                  onChange={(e) => setCreatorAllocation(Number(e.target.value))}
-                  className="w-full h-1.5 bg-white/10 rounded-full appearance-none cursor-pointer
-                    [&::-webkit-slider-thumb]:appearance-none
-                    [&::-webkit-slider-thumb]:w-4
-                    [&::-webkit-slider-thumb]:h-4
-                    [&::-webkit-slider-thumb]:rounded-full
-                    [&::-webkit-slider-thumb]:bg-white
-                    [&::-webkit-slider-thumb]:cursor-pointer
-                    [&::-webkit-slider-thumb]:transition-all
-                    [&::-webkit-slider-thumb]:hover:scale-110
-                    [&::-moz-range-thumb]:w-4
-                    [&::-moz-range-thumb]:h-4
-                    [&::-moz-range-thumb]:rounded-full
-                    [&::-moz-range-thumb]:bg-white
-                    [&::-moz-range-thumb]:border-0
-                    [&::-moz-range-thumb]:cursor-pointer"
-                  style={{
-                    background: `linear-gradient(to right, rgba(255,255,255,0.5) 0%, rgba(255,255,255,0.5) ${creatorAllocation * 10}%, rgba(255,255,255,0.1) ${creatorAllocation * 10}%, rgba(255,255,255,0.1) 100%)`
-                  }}
-                />
-                <div className="flex justify-between text-xs text-white/30 mt-2">
-                  <span>0%</span>
-                  <span>5%</span>
-                  <span>10%</span>
-                </div>
-              </div>
-
-              {/* Quick select buttons */}
-              <div className="flex gap-2 mt-3">
-                {[0, 2, 5, 8, 10].map((pct) => (
-                  <button
-                    key={pct}
-                    onClick={() => setCreatorAllocation(pct)}
-                    className={`flex-1 py-2 rounded-lg text-xs font-semibold transition-all ${
-                      creatorAllocation === pct
-                        ? 'bg-white/20 text-white'
-                        : 'bg-white/5 text-white/40 hover:bg-white/10'
-                    }`}
-                  >
-                    {pct}%
-                  </button>
-                ))}
-              </div>
+              <p className="text-xs text-white/30 mt-3">
+                This feature will allow you to purchase tokens on behalf of the repository owner, 
+                which they can claim after verifying ownership.
+              </p>
             </div>
           )}
 
@@ -1644,29 +1539,8 @@ export default function LaunchPage() {
               {launchMode === 'own-repo' ? 'Direct to Wallet' : 'Escrow (Claimable)'}
             </span>
           </div>
-          {launchMode === 'other-repo' && creatorAllocation > 0 && (
-            <div className="flex justify-between pt-2 border-t border-white/5">
-              <span className="text-white/50">Developer Supply</span>
-              <span className="text-white font-medium">{creatorAllocation}% reserved</span>
-            </div>
-          )}
         </div>
       </div>
-
-      {/* Developer allocation highlight for escrow mode */}
-      {launchMode === 'other-repo' && creatorAllocation > 0 && (
-        <div className="p-4 rounded-xl border border-white/10 bg-white/[0.02] mb-6">
-          <div className="flex items-center gap-3">
-            <div className="w-10 h-10 rounded-full bg-[#00FF41]/10 flex items-center justify-center">
-              <Gift className="w-5 h-5 text-[#00FF41]" />
-            </div>
-            <div className="flex-1">
-              <p className="text-sm font-medium text-white">{creatorAllocation}% Developer Supply</p>
-              <p className="text-xs text-white/40">Reserved for the repo owner to claim after verification</p>
-            </div>
-          </div>
-        </div>
-      )}
 
       {launchError && (
         <div className="p-4 rounded-xl bg-red-500/10 border border-red-500/30 mb-4">

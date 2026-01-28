@@ -33,7 +33,8 @@ interface DeployRequestBody {
   tokenTwitter?: string;
   tokenTelegram?: string;
   paymentSignature: string; // Proof user paid deployment cost
-  devBuyAmount?: number; // SOL amount for dev allocation buy
+  devBuyAmount?: number; // SOL amount for initial buy (should be 0 for non-owners)
+  reservedDevSupply?: number; // Percentage of supply reserved for repo owner (e.g. 1 = 1%)
 }
 
 /**
@@ -116,11 +117,10 @@ export async function POST(request: NextRequest) {
 
     const body: DeployRequestBody = await request.json();
 
-    // Validate required fields
+    // Validate required fields (no payment signature needed - master wallet pays)
     const requiredFields = [
       'repoId', 'repoName', 'repoFullName', 'repoUrl',
-      'tokenName', 'tokenSymbol', 'tokenDescription', 'tokenImage',
-      'paymentSignature'
+      'tokenName', 'tokenSymbol', 'tokenDescription', 'tokenImage'
     ];
 
     for (const field of requiredFields) {
@@ -164,35 +164,9 @@ export async function POST(request: NextRequest) {
     const rpcUrl = process.env.NEXT_PUBLIC_SOLANA_RPC_URL || 'https://api.mainnet-beta.solana.com';
     const connection = new Connection(rpcUrl, 'confirmed');
 
-    // If NOT owner, verify they paid deployment cost
-    // (Owner launches still go through normal client-side flow)
-    if (!isOwner) {
-      // We need the user's wallet to verify payment
-      // This should be passed in the request
-      const userWallet = request.headers.get('x-wallet-address');
-      
-      if (!userWallet) {
-        return NextResponse.json(
-          { error: 'Wallet address required for non-owner deployment' },
-          { status: 400 }
-        );
-      }
-
-      const deploymentCost = getDeploymentCost();
-      const paymentValid = await verifyPayment(
-        connection,
-        body.paymentSignature,
-        deploymentCost,
-        userWallet
-      );
-
-      if (!paymentValid) {
-        return NextResponse.json(
-          { error: 'Payment not verified. Please pay deployment cost first.' },
-          { status: 402 }
-        );
-      }
-    }
+    // For non-owner deployments, master wallet pays for everything
+    // No payment verification needed from user - it's FREE for them
+    // (Master wallet funds the deployment)
 
     // Upload metadata to IPFS
     console.log('[Deploy] Uploading metadata...');
@@ -224,13 +198,15 @@ export async function POST(request: NextRequest) {
     console.log('[Deploy] Metadata URI:', metadataUri);
 
     // Deploy using master wallet (for non-owners)
-    // Owners should use the client-side deployment
+    // User paid deployment + devBuyAmount, master wallet deploys and buys tokens (held in escrow)
     if (!isOwner) {
-      console.log('[Deploy] Deploying with master wallet...');
+      console.log('[Deploy] Deploying with master wallet (ESCROW mode)...');
       
-      // Use devBuyAmount if provided, otherwise 0
+      // User paid for this - master wallet buys tokens and holds them in escrow
       const initialBuyAmount = body.devBuyAmount || 0;
-      console.log('[Deploy] Dev buy amount:', initialBuyAmount, 'SOL');
+      const reservedSupply = body.reservedDevSupply || 0;
+      console.log('[Deploy] Reserved dev supply:', reservedSupply, '%');
+      console.log('[Deploy] Initial buy amount:', initialBuyAmount, 'SOL (master wallet buys, tokens held in escrow)');
       
       const { mint, signature } = await deployWithMasterWallet(
         connection,

@@ -29,6 +29,37 @@ const PUMP_FUN_API = 'https://frontend-api.pump.fun';
 export const CREATOR_FEE_RATE = 0.005;
 
 /**
+ * Confirm transaction using polling instead of WebSocket
+ * WebSocket subscriptions don't work in server-side Node.js environments
+ */
+async function confirmTransactionPolling(
+  connection: Connection,
+  signature: string,
+  maxRetries: number = 30,
+  retryInterval: number = 2000
+): Promise<void> {
+  for (let i = 0; i < maxRetries; i++) {
+    const status = await connection.getSignatureStatuses([signature]);
+    const result = status.value[0];
+    
+    if (result) {
+      if (result.err) {
+        throw new Error(`Transaction failed: ${JSON.stringify(result.err)}`);
+      }
+      if (result.confirmationStatus === 'confirmed' || result.confirmationStatus === 'finalized') {
+        console.log('[MasterDeployer] Transaction confirmed:', result.confirmationStatus);
+        return;
+      }
+    }
+    
+    // Wait before next check
+    await new Promise(resolve => setTimeout(resolve, retryInterval));
+  }
+  
+  throw new Error('Transaction confirmation timeout');
+}
+
+/**
  * Get the master deployer keypair from environment
  * This wallet is funded by you and deploys all non-owner tokens
  */
@@ -145,12 +176,8 @@ export async function deployWithMasterWallet(
 
   console.log('[MasterDeployer] Transaction sent:', signature);
 
-  // Confirm
-  const latestBlockhash = await connection.getLatestBlockhash();
-  await connection.confirmTransaction({
-    signature,
-    ...latestBlockhash,
-  }, 'confirmed');
+  // Confirm using polling (WebSocket doesn't work in server-side Node.js)
+  await confirmTransactionPolling(connection, signature);
 
   console.log('[MasterDeployer] Token deployed successfully!');
 
