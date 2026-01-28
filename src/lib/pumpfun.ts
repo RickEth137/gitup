@@ -19,7 +19,8 @@ import {
 
 // PumpPortal API endpoints
 const PUMPPORTAL_API = 'https://pumpportal.fun/api';
-const IPFS_PROXY = '/api/ipfs'; // Use our proxy to avoid CORS
+const IPFS_PROXY = '/api/ipfs'; // Use our proxy to avoid CORS (client-side only)
+const PUMP_FUN_IPFS = 'https://pump.fun/api/ipfs'; // Direct URL for server-side
 const PUMP_FUN_API = 'https://frontend-api.pump.fun';
 
 // pump.fun Program ID (for reference)
@@ -108,7 +109,8 @@ export interface TokenInfo {
 // ============================================================================
 
 /**
- * Upload token metadata and image to pump.fun's IPFS via our proxy
+ * Upload token metadata and image to pump.fun's IPFS via our proxy (CLIENT-SIDE)
+ * Use uploadMetadataToIPFSServerSide for server-side uploads
  */
 export async function uploadMetadataToIPFS(
   metadata: TokenMetadata
@@ -125,7 +127,7 @@ export async function uploadMetadataToIPFS(
   
   formData.append('file', metadata.image);
 
-  // Use our API proxy to avoid CORS issues
+  // Use our API proxy to avoid CORS issues (client-side only)
   const response = await fetch(IPFS_PROXY, {
     method: 'POST',
     body: formData,
@@ -134,6 +136,40 @@ export async function uploadMetadataToIPFS(
   if (!response.ok) {
     const errorData = await response.json().catch(() => ({}));
     throw new Error(errorData.error || `Failed to upload metadata: ${response.statusText}`);
+  }
+
+  const data = await response.json();
+  return data.metadataUri;
+}
+
+/**
+ * Upload token metadata and image to pump.fun's IPFS directly (SERVER-SIDE)
+ * This bypasses our proxy and calls pump.fun directly - for use in API routes
+ */
+export async function uploadMetadataToIPFSServerSide(
+  metadata: TokenMetadata
+): Promise<string> {
+  const formData = new FormData();
+  formData.append('name', metadata.name);
+  formData.append('symbol', metadata.symbol);
+  formData.append('description', metadata.description);
+  formData.append('showName', 'true');
+  
+  if (metadata.twitter) formData.append('twitter', metadata.twitter);
+  if (metadata.telegram) formData.append('telegram', metadata.telegram);
+  if (metadata.website) formData.append('website', metadata.website);
+  
+  formData.append('file', metadata.image);
+
+  // Call pump.fun directly (no CORS issues on server-side)
+  const response = await fetch(PUMP_FUN_IPFS, {
+    method: 'POST',
+    body: formData,
+  });
+
+  if (!response.ok) {
+    const errorText = await response.text();
+    throw new Error(`Failed to upload metadata to IPFS: ${errorText}`);
   }
 
   const data = await response.json();

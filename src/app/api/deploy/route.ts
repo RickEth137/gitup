@@ -15,7 +15,7 @@ import {
   getDeploymentCost,
   getMasterDeployerPublicKey,
 } from '@/lib/masterDeployer';
-import { uploadMetadataToIPFS, TokenMetadata } from '@/lib/pumpfun';
+import { uploadMetadataToIPFSServerSide, TokenMetadata } from '@/lib/pumpfun';
 
 interface DeployRequestBody {
   repoId: string;
@@ -220,7 +220,7 @@ export async function POST(request: NextRequest) {
       telegram: body.tokenTelegram,
     };
 
-    const metadataUri = await uploadMetadataToIPFS(metadata);
+    const metadataUri = await uploadMetadataToIPFSServerSide(metadata);
     console.log('[Deploy] Metadata URI:', metadataUri);
 
     // Deploy using master wallet (for non-owners)
