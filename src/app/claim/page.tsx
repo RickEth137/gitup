@@ -2,8 +2,8 @@
 
 import { useSession } from 'next-auth/react';
 import { signIn } from 'next-auth/react';
-import { useState } from 'react';
-import { Github, Search, ExternalLink, CheckCircle, Wallet, AlertCircle, Loader2 } from 'lucide-react';
+import { useState, useEffect } from 'react';
+import { Github, Search, ExternalLink, CheckCircle, Wallet, AlertCircle, Loader2, Gift, Star, GitFork } from 'lucide-react';
 import { useWallet, useConnection } from '@solana/wallet-adapter-react';
 import { WalletMultiButton } from '@solana/wallet-adapter-react-ui';
 import { Transaction } from '@solana/web3.js';
@@ -29,6 +29,8 @@ interface ClaimableToken {
   escrowPublicKey?: string;
   escrowBalance?: number;
   launchedAt: string;
+  repoStars?: number;
+  repoForks?: number;
 }
 
 export default function ClaimPage() {
@@ -41,6 +43,38 @@ export default function ClaimPage() {
   const [claimingId, setClaimingId] = useState<string | null>(null);
   const [claimError, setClaimError] = useState<string | null>(null);
   const [claimSuccess, setClaimSuccess] = useState<string | null>(null);
+  
+  // Auto-detected tokens for user's repos
+  const [myTokens, setMyTokens] = useState<ClaimableToken[]>([]);
+  const [isLoadingMyTokens, setIsLoadingMyTokens] = useState(false);
+
+  const githubLogin = (session?.user as { githubLogin?: string })?.githubLogin;
+
+  // Auto-fetch tokens for user's repos when GitHub is connected
+  useEffect(() => {
+    async function fetchMyTokens() {
+      if (!githubLogin) {
+        setMyTokens([]);
+        return;
+      }
+
+      setIsLoadingMyTokens(true);
+      try {
+        // Fetch tokens that match user's GitHub repos
+        const response = await fetch(`/api/tokens/my-claimable?githubLogin=${encodeURIComponent(githubLogin)}`);
+        if (response.ok) {
+          const data = await response.json();
+          setMyTokens(data.tokens || []);
+        }
+      } catch (error) {
+        console.error('Error fetching claimable tokens:', error);
+      } finally {
+        setIsLoadingMyTokens(false);
+      }
+    }
+
+    fetchMyTokens();
+  }, [githubLogin]);
 
   // Real search using API
   const handleSearch = async () => {
@@ -148,6 +182,11 @@ export default function ClaimPage() {
       
       // Update the token in search results
       setSearchResults(prev => 
+        prev.map(t => t.id === token.id ? { ...t, isClaimed: true, escrowBalance: 0 } : t)
+      );
+      
+      // Also update in myTokens
+      setMyTokens(prev => 
         prev.map(t => t.id === token.id ? { ...t, isClaimed: true, escrowBalance: 0 } : t)
       );
       
@@ -279,6 +318,57 @@ export default function ClaimPage() {
           </div>
         </div>
 
+        {/* Auto-detected tokens for user's repos */}
+        {session && (
+          <div className="mb-8">
+            <div className="flex items-center gap-3 mb-4">
+              <Gift className="w-5 h-5 text-[#00FF41]" />
+              <h2 className="text-lg font-semibold text-white">Your Claimable Tokens</h2>
+            </div>
+            
+            {isLoadingMyTokens ? (
+              <div className="p-8 rounded-xl border border-white/5 bg-white/[0.02] text-center">
+                <Loader2 className="w-6 h-6 text-[#00FF41] animate-spin mx-auto mb-3" />
+                <p className="text-white/40 text-sm">Scanning for tokens launched with your repos...</p>
+              </div>
+            ) : myTokens.length > 0 ? (
+              <div className="space-y-3">
+                {claimError && (
+                  <div className="p-3 rounded-lg bg-red-500/10 border border-red-500/20 text-red-400 text-sm flex items-center gap-2">
+                    <AlertCircle className="w-4 h-4" />
+                    {claimError}
+                  </div>
+                )}
+                {claimSuccess && (
+                  <div className="p-3 rounded-lg bg-[#00FF41]/10 border border-[#00FF41]/20 text-[#00FF41] text-sm flex items-center gap-2">
+                    <CheckCircle className="w-4 h-4" />
+                    {claimSuccess}
+                  </div>
+                )}
+                {myTokens.map((token) => (
+                  <TokenCard
+                    key={token.id}
+                    token={token}
+                    onClaim={() => handleClaim(token)}
+                    isClaiming={claimingId === token.id}
+                    canClaim={!!session && !!publicKey}
+                    walletConnected={!!publicKey}
+                    isOwner={true}
+                  />
+                ))}
+              </div>
+            ) : (
+              <div className="p-6 rounded-xl border border-white/5 bg-white/[0.02] text-center">
+                <Github className="w-10 h-10 text-white/10 mx-auto mb-3" />
+                <p className="text-white/50 text-sm mb-1">No claimable tokens found</p>
+                <p className="text-white/30 text-xs">
+                  When someone tokenizes one of your repos, it will appear here automatically
+                </p>
+              </div>
+            )}
+          </div>
+        )}
+
         {/* Search Results */}
         {searchResults.length > 0 && (
           <div className="mb-8">
@@ -354,12 +444,14 @@ function TokenCard({
   isClaiming,
   canClaim,
   walletConnected,
+  isOwner = false,
 }: {
   token: ClaimableToken;
   onClaim: () => void;
   isClaiming: boolean;
   canClaim: boolean;
   walletConnected: boolean;
+  isOwner?: boolean;
 }) {
   const getIcon = () => {
     switch (token.entityType) {
@@ -421,7 +513,7 @@ function TokenCard({
   };
 
   return (
-    <div className="p-4 rounded-xl border border-white/5 bg-white/[0.02] hover:border-white/10 transition-all">
+    <div className={`p-4 rounded-xl border ${isOwner ? 'border-[#00FF41]/20 bg-[#00FF41]/[0.02]' : 'border-white/5 bg-white/[0.02]'} hover:border-white/10 transition-all`}>
       <div className="flex items-center justify-between">
         <div className="flex items-center gap-4">
           <div className="w-12 h-12 rounded-xl bg-white/5 flex items-center justify-center overflow-hidden">
@@ -437,6 +529,11 @@ function TokenCard({
               <span className="text-[10px] px-1.5 py-0.5 rounded bg-white/5 text-white/30 uppercase">
                 {token.entityType}
               </span>
+              {isOwner && (
+                <span className="text-[10px] px-1.5 py-0.5 rounded bg-[#00FF41]/10 text-[#00FF41] flex items-center gap-1">
+                  <CheckCircle className="w-2.5 h-2.5" /> Owner
+                </span>
+              )}
               <a
                 href={getEntityUrl()}
                 target="_blank"
@@ -449,6 +546,20 @@ function TokenCard({
             <p className="text-sm text-white/40">
               ${token.tokenSymbol} · {token.tokenName}
             </p>
+            {(token.repoStars !== undefined || token.repoForks !== undefined) && (
+              <div className="flex items-center gap-3 mt-1 text-xs text-white/30">
+                {token.repoStars !== undefined && (
+                  <span className="flex items-center gap-1">
+                    <Star className="w-3 h-3" /> {token.repoStars.toLocaleString()}
+                  </span>
+                )}
+                {token.repoForks !== undefined && (
+                  <span className="flex items-center gap-1">
+                    <GitFork className="w-3 h-3" /> {token.repoForks.toLocaleString()}
+                  </span>
+                )}
+              </div>
+            )}
             {token.isClaimed && (
               <p className="text-xs text-[#00FF41] flex items-center gap-1 mt-1">
                 <CheckCircle className="w-3 h-3" /> Claimed
