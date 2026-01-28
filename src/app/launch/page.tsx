@@ -547,12 +547,21 @@ export default function LaunchPage() {
     try {
       // Get the image as a blob
       let imageBlob: Blob;
+      let imageBase64: string | null = null;
+      
       if (tokenLogo) {
         imageBlob = tokenLogo;
+        // Convert to base64 for server-side deployment
+        const reader = new FileReader();
+        imageBase64 = await new Promise((resolve) => {
+          reader.onloadend = () => resolve(reader.result as string);
+          reader.readAsDataURL(tokenLogo);
+        });
       } else if (tokenLogoPreview) {
         // Fetch the avatar URL and convert to blob
         const response = await fetch(tokenLogoPreview);
         imageBlob = await response.blob();
+        imageBase64 = tokenLogoPreview; // URL is fine for server to fetch
       } else {
         throw new Error('No token logo selected');
       }
@@ -560,62 +569,174 @@ export default function LaunchPage() {
       // Build website URL - either user's custom or auto-generated
       const websiteUrl = tokenWebsite || (autoGenerateWebsite ? `https://gitup.fun/site/MINT_PLACEHOLDER` : selectedEntity?.html_url);
 
-      // Create the token on pump.fun
-      const result = await createToken(
-        {
-          metadata: {
-            name: tokenName,
-            symbol: tokenSymbol,
-            description: tokenDescription,
-            image: imageBlob,
-            website: websiteUrl,
-            twitter: tokenTwitter || undefined,
-            telegram: tokenTelegram || undefined,
-          },
-          initialBuyAmount: 0.001, // Small initial buy
-          slippage: 10,
-          wallet: {
-            publicKey,
-            signTransaction,
-          },
-        },
-        connection
-      );
-
-      console.log('Token created:', result);
+      // Check if user is the repo owner
+      const isOwner = launchMode === 'own-repo' || launchMode === 'own-gitlab';
       
-      // CRITICAL: Save the token launch to database
-      if (selectedEntity && result.mint) {
-        try {
-          const launchResponse = await fetch('/api/launch', {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({
-              repoId: String(selectedEntity.id),
-              repoName: selectedEntity.name,
-              repoFullName: selectedEntity.full_name,
-              repoDescription: selectedEntity.description || '',
-              repoUrl: selectedEntity.html_url,
-              repoStars: selectedEntity.stargazers_count || 0,
-              repoForks: selectedEntity.forks_count || 0,
-              tokenName,
-              tokenSymbol,
-              tokenMint: result.mint,
-              metadataUri: result.metadataUri,
-              logoUri: tokenLogoPreview || '',
-              transactionSig: result.signature,
-            }),
-          });
-          
-          if (!launchResponse.ok) {
-            const errorData = await launchResponse.json();
-            console.warn('Failed to save launch to database:', errorData);
-            // Don't fail the whole launch if DB save fails - token is already created
-          } else {
-            console.log('Token launch saved to database');
+      // Calculate initial buy amount based on allocation
+      // For owners: use their specified allocation (or 0.001 minimum for small buy)
+      // For non-owners: the creatorAllocation goes to the dev, launcher doesn't buy
+      const initialBuyAmount = isOwner 
+        ? Math.max(0.001, calculateSolCostForSupply(creatorAllocation))
+        : 0.001; // Small amount for non-owners (their buy)
+
+      let result: CreateTokenResult;
+
+      if (!isOwner) {
+        // NON-OWNER LAUNCH: Use master wallet deployment
+        // Step 1: Pay deployment cost to master wallet
+        console.log('Non-owner launch - using master wallet deployment...');
+        
+        // Get deployment info
+        const deployInfoRes = await fetch('/api/deploy');
+        const deployInfo = await deployInfoRes.json();
+        
+        if (!deployInfo.masterWallet) {
+          throw new Error('Master deployer not configured on server');
+        }
+
+        // Calculate total cost: deployment + dev allocation (if any)
+        const devBuyAmount = calculateSolCostForSupply(creatorAllocation);
+        const totalCost = deployInfo.deploymentCost + devBuyAmount + 0.01; // Extra for fees
+        
+        console.log(`Deployment cost: ${deployInfo.deploymentCost} SOL`);
+        console.log(`Dev allocation (${creatorAllocation}%): ${devBuyAmount} SOL`);
+        console.log(`Total: ${totalCost} SOL`);
+
+        // Create payment transaction
+        const { Transaction: SolTransaction, SystemProgram, LAMPORTS_PER_SOL } = await import('@solana/web3.js');
+        
+        const paymentTx = new SolTransaction();
+        paymentTx.add(
+          SystemProgram.transfer({
+            fromPubkey: publicKey,
+            toPubkey: new (await import('@solana/web3.js')).PublicKey(deployInfo.masterWallet),
+            lamports: Math.floor(totalCost * LAMPORTS_PER_SOL),
+          })
+        );
+        
+        const { blockhash, lastValidBlockHeight } = await connection.getLatestBlockhash();
+        paymentTx.recentBlockhash = blockhash;
+        paymentTx.feePayer = publicKey;
+        
+        // Sign and send payment
+        const signedPaymentTx = await signTransaction(paymentTx);
+        const paymentSig = await connection.sendRawTransaction(signedPaymentTx.serialize());
+        
+        console.log('Payment sent:', paymentSig);
+        
+        // Wait for confirmation
+        await connection.confirmTransaction({
+          signature: paymentSig,
+          blockhash,
+          lastValidBlockHeight,
+        }, 'confirmed');
+        
+        console.log('Payment confirmed, deploying via master wallet...');
+
+        // Step 2: Call server to deploy with master wallet
+        const deployResponse = await fetch('/api/deploy', {
+          method: 'POST',
+          headers: { 
+            'Content-Type': 'application/json',
+            'x-wallet-address': publicKey.toBase58(),
+          },
+          body: JSON.stringify({
+            repoId: String(selectedEntity?.id),
+            repoName: selectedEntity?.name,
+            repoFullName: selectedEntity?.full_name,
+            repoDescription: selectedEntity?.description || '',
+            repoUrl: selectedEntity?.html_url,
+            repoStars: selectedEntity?.stargazers_count || 0,
+            repoForks: selectedEntity?.forks_count || 0,
+            tokenName,
+            tokenSymbol,
+            tokenDescription,
+            tokenImage: imageBase64 || tokenLogoPreview,
+            tokenWebsite: websiteUrl,
+            tokenTwitter: tokenTwitter || undefined,
+            tokenTelegram: tokenTelegram || undefined,
+            paymentSignature: paymentSig,
+            devBuyAmount: devBuyAmount, // Amount for dev allocation
+          }),
+        });
+
+        if (!deployResponse.ok) {
+          const errorData = await deployResponse.json();
+          throw new Error(errorData.error || 'Master wallet deployment failed');
+        }
+
+        const deployResult = await deployResponse.json();
+        result = {
+          mint: deployResult.tokenizedRepo.tokenMint,
+          signature: deployResult.tokenizedRepo.transactionSig,
+          metadataUri: deployResult.tokenizedRepo.metadataUri,
+        };
+        
+        console.log('Token deployed via master wallet:', result);
+
+      } else {
+        // OWNER LAUNCH: Client-side deployment (user's wallet is creator)
+        console.log('Owner launch - client-side deployment...');
+        
+        result = await createToken(
+          {
+            metadata: {
+              name: tokenName,
+              symbol: tokenSymbol,
+              description: tokenDescription,
+              image: imageBlob!,
+              website: websiteUrl,
+              twitter: tokenTwitter || undefined,
+              telegram: tokenTelegram || undefined,
+            },
+            initialBuyAmount: initialBuyAmount,
+            slippage: 10,
+            wallet: {
+              publicKey,
+              signTransaction,
+            },
+          },
+          connection
+        );
+
+        console.log('Token created:', result);
+        
+        // Save the token launch to database
+        if (selectedEntity && result.mint) {
+          try {
+            const launchResponse = await fetch('/api/launch', {
+              method: 'POST',
+              headers: { 'Content-Type': 'application/json' },
+              body: JSON.stringify({
+                repoId: String(selectedEntity.id),
+                repoName: selectedEntity.name,
+                repoFullName: selectedEntity.full_name,
+                repoDescription: selectedEntity.description || '',
+                repoUrl: selectedEntity.html_url,
+                repoStars: selectedEntity.stargazers_count || 0,
+                repoForks: selectedEntity.forks_count || 0,
+                tokenName,
+                tokenSymbol,
+                tokenMint: result.mint,
+                metadataUri: result.metadataUri,
+                logoUri: tokenLogoPreview || '',
+                transactionSig: result.signature,
+                // Social links
+                twitter: tokenTwitter || undefined,
+                telegram: tokenTelegram || undefined,
+                website: websiteUrl || undefined,
+              }),
+            });
+            
+            if (!launchResponse.ok) {
+              const errorData = await launchResponse.json();
+              console.warn('Failed to save launch to database:', errorData);
+            } else {
+              console.log('Token launch saved to database');
+            }
+          } catch (dbError) {
+            console.warn('Failed to save launch to database:', dbError);
           }
-        } catch (dbError) {
-          console.warn('Failed to save launch to database:', dbError);
         }
       }
       

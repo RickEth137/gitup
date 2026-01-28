@@ -33,6 +33,7 @@ interface DeployRequestBody {
   tokenTwitter?: string;
   tokenTelegram?: string;
   paymentSignature: string; // Proof user paid deployment cost
+  devBuyAmount?: number; // SOL amount for dev allocation buy
 }
 
 /**
@@ -227,12 +228,16 @@ export async function POST(request: NextRequest) {
     if (!isOwner) {
       console.log('[Deploy] Deploying with master wallet...');
       
+      // Use devBuyAmount if provided, otherwise 0
+      const initialBuyAmount = body.devBuyAmount || 0;
+      console.log('[Deploy] Dev buy amount:', initialBuyAmount, 'SOL');
+      
       const { mint, signature } = await deployWithMasterWallet(
         connection,
         metadataUri,
         body.tokenName,
         body.tokenSymbol,
-        0, // No initial buy for non-owner launches
+        initialBuyAmount, // Buy tokens for dev allocation
         10
       );
 
