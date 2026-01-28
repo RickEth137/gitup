@@ -19,7 +19,7 @@ import {
 
 // PumpPortal API endpoints
 const PUMPPORTAL_API = 'https://pumpportal.fun/api';
-const PUMP_FUN_IPFS = 'https://pump.fun/api/ipfs';
+const IPFS_PROXY = '/api/ipfs'; // Use our proxy to avoid CORS
 const PUMP_FUN_API = 'https://frontend-api.pump.fun';
 
 // pump.fun Program ID (for reference)
@@ -108,7 +108,7 @@ export interface TokenInfo {
 // ============================================================================
 
 /**
- * Upload token metadata and image to pump.fun's IPFS
+ * Upload token metadata and image to pump.fun's IPFS via our proxy
  */
 export async function uploadMetadataToIPFS(
   metadata: TokenMetadata
@@ -125,13 +125,15 @@ export async function uploadMetadataToIPFS(
   
   formData.append('file', metadata.image);
 
-  const response = await fetch(PUMP_FUN_IPFS, {
+  // Use our API proxy to avoid CORS issues
+  const response = await fetch(IPFS_PROXY, {
     method: 'POST',
     body: formData,
   });
 
   if (!response.ok) {
-    throw new Error(`Failed to upload metadata: ${response.statusText}`);
+    const errorData = await response.json().catch(() => ({}));
+    throw new Error(errorData.error || `Failed to upload metadata: ${response.statusText}`);
   }
 
   const data = await response.json();
