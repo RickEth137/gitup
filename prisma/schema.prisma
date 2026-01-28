@@ -57,6 +57,11 @@ model TokenizedRepo {
   launchedAt      DateTime @default(now())
   User            User     @relation(fields: [userId], references: [id])
   
+  // Social links (from token metadata)
+  twitter         String?
+  telegram        String?
+  website         String?
+  
   // Fee tracking for non-owner launches
   // When launcher != repo owner, fees accumulate for real owner to claim
   isEscrow          Boolean   @default(false)  // true = launched by non-owner

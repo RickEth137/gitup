@@ -25,6 +25,10 @@ interface LaunchRequestBody {
   logoUri?: string;
   bondingCurve?: string;
   transactionSig: string;
+  // Social links
+  twitter?: string;
+  telegram?: string;
+  website?: string;
 }
 
 /**
@@ -154,6 +158,10 @@ export async function POST(request: NextRequest) {
         bondingCurve: body.bondingCurve,
         transactionSig: body.transactionSig,
         userId: user.id,
+        // Social links
+        twitter: body.twitter,
+        telegram: body.telegram,
+        website: body.website,
         // Fee tracking fields
         isEscrow: !isOwner,  // Non-owner launches need claiming
         isClaimed: isOwner,  // Owner launches are "claimed" immediately
@@ -227,6 +235,10 @@ export async function GET(request: NextRequest) {
       tokenLogo: launch.logoUri,
       launchedAt: launch.launchedAt?.toISOString() || new Date().toISOString(),
       isClaimed: launch.isClaimed,
+      // Social links
+      twitter: (launch as any).twitter || null,
+      telegram: (launch as any).telegram || null,
+      website: (launch as any).website || null,
       launcher: {
         githubLogin: launch.User?.githubLogin || null,
         githubAvatar: launch.User?.avatarUrl || null,
