@@ -2,9 +2,10 @@
 
 import { useState, useEffect, useMemo } from 'react';
 import { useParams } from 'next/navigation';
-import { GitBranch, ExternalLink, Twitter, Send, Globe, Github, Star, GitFork, ArrowRight } from 'lucide-react';
+import { ExternalLink, Twitter, Send, Globe, Github, Star, GitFork, ArrowRight } from 'lucide-react';
 import ReactMarkdown from 'react-markdown';
 import remarkGfm from 'remark-gfm';
+import Image from 'next/image';
 
 // Star particles background
 function StarParticles() {
@@ -124,7 +125,7 @@ export default function TokenSitePage() {
     return (
       <div className="min-h-screen bg-[#0a0a0a] flex items-center justify-center">
         <div className="text-center">
-          <GitBranch className="w-16 h-16 text-white/20 mx-auto mb-4" />
+          <Image src="/logopng.png" alt="GitUp.fun" width={64} height={64} className="mx-auto mb-4 opacity-20" />
           <h1 className="text-white text-xl font-bold mb-2">Site Not Found</h1>
           <p className="text-white/50">This project site doesn't exist yet.</p>
         </div>
@@ -381,7 +382,7 @@ export default function TokenSitePage() {
           <div className="border border-white/10 rounded-2xl bg-white/[0.02] overflow-hidden">
             <div className="px-6 py-4 border-b border-white/10 bg-white/[0.02]">
               <h2 className="text-white font-bold flex items-center gap-2">
-                <GitBranch className="w-5 h-5 text-[#00FF41]" />
+                <Image src="/logopng.png" alt="GitUp.fun" width={20} height={20} />
                 README
               </h2>
             </div>
@@ -418,9 +419,7 @@ export default function TokenSitePage() {
               rel="noopener noreferrer"
               className="flex items-center gap-2 text-white/50 hover:text-[#00FF41] transition-colors"
             >
-              <div className="w-6 h-6 bg-[#00FF41] rounded-lg flex items-center justify-center">
-                <GitBranch className="w-3.5 h-3.5 text-black" />
-              </div>
+              <Image src="/logopng.png" alt="GitUp.fun" width={24} height={24} className="rounded-lg" />
               <span className="font-bold">Powered by GitUp.fun</span>
             </a>
             

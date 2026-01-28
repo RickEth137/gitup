@@ -12,15 +12,42 @@ export async function GET(
       return NextResponse.json({ error: 'Mint address required' }, { status: 400 });
     }
 
-    const site = await prisma.tokenSite.findUnique({
-      where: { mint },
+    // Try to find the tokenized repo with this mint
+    const tokenizedRepo = await prisma.tokenizedRepo.findUnique({
+      where: { tokenMint: mint },
+      select: {
+        tokenName: true,
+        tokenSymbol: true,
+        repoName: true,
+        repoFullName: true,
+        repoDescription: true,
+        repoUrl: true,
+        repoStars: true,
+        repoForks: true,
+        logoUri: true,
+        bannerUri: true,
+        metadataUri: true,
+      },
     });
 
-    if (!site) {
+    if (!tokenizedRepo) {
       return NextResponse.json({ error: 'Site not found' }, { status: 404 });
     }
 
-    return NextResponse.json(site);
+    // Return in the expected format
+    return NextResponse.json({
+      mint,
+      name: tokenizedRepo.tokenName,
+      symbol: tokenizedRepo.tokenSymbol,
+      description: tokenizedRepo.repoDescription || '',
+      image: tokenizedRepo.logoUri,
+      banner: tokenizedRepo.bannerUri,
+      github: tokenizedRepo.repoUrl,
+      repoName: tokenizedRepo.repoName,
+      repoOwner: tokenizedRepo.repoFullName?.split('/')[0] || '',
+      repoStars: tokenizedRepo.repoStars,
+      repoForks: tokenizedRepo.repoForks,
+    });
   } catch (error) {
     console.error('Error fetching site data:', error);
     return NextResponse.json({ error: 'Failed to fetch site data' }, { status: 500 });

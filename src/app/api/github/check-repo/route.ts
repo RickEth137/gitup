@@ -19,17 +19,16 @@ export async function GET(request: NextRequest) {
       return NextResponse.json({ error: 'Missing repoId' }, { status: 400 });
     }
 
-    const existingToken = await prisma.tokenLaunch.findFirst({
+    const existingToken = await prisma.tokenizedRepo.findFirst({
       where: { 
-        entityType: 'github',
-        entityId: repoId 
+        repoId: repoId 
       },
       select: {
         tokenName: true,
         tokenSymbol: true,
         tokenMint: true,
         launchedAt: true,
-        launcher: {
+        User: {
           select: {
             githubLogin: true,
           },

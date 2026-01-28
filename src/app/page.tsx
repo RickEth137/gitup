@@ -2,11 +2,12 @@
 
 import { useMemo } from 'react';
 import Link from 'next/link';
+import Image from 'next/image';
 import { useSession } from 'next-auth/react';
 import { useWallet } from '@solana/wallet-adapter-react';
 import { WalletMultiButton } from '@solana/wallet-adapter-react-ui';
 import { signIn } from 'next-auth/react';
-import { Github, ArrowRight, FileCode, ChevronDown } from 'lucide-react';
+import { Github, ArrowRight, ChevronDown } from 'lucide-react';
 
 // GitLab icon component
 const GitLabIcon = ({ className }: { className?: string }) => (
@@ -133,7 +134,7 @@ export default function HomePage() {
               href="/launch"
               className="group relative inline-flex items-center gap-3 px-8 py-4 bg-[#00FF41] text-black font-semibold rounded-xl hover:bg-[#00FF41]/90 transition-all duration-300 hover:scale-105 hover:shadow-[0_0_40px_rgba(0,255,65,0.3)]"
             >
-              <FileCode className="w-5 h-5" />
+              <Image src="/logopng.png" alt="" width={20} height={20} />
               Tokenize Repo
               <ArrowRight className="w-5 h-5 group-hover:translate-x-1 transition-transform" />
             </Link>
@@ -430,7 +431,7 @@ export default function HomePage() {
                 href="/launch"
                 className="inline-flex items-center justify-center gap-2 px-8 py-3 bg-[#00FF41] text-black font-semibold rounded-xl hover:bg-[#00FF41]/90 transition-all hover:shadow-[0_0_30px_rgba(0,255,65,0.2)]"
               >
-                <FileCode className="w-5 h-5" />
+                <Image src="/logopng.png" alt="" width={20} height={20} />
                 Tokenize Repo
               </Link>
               <Link
@@ -450,11 +451,17 @@ export default function HomePage() {
         <div className="max-w-5xl mx-auto px-6">
           <div className="flex flex-col md:flex-row justify-between items-center gap-4">
             <div className="flex items-center gap-2">
-              <div className="w-8 h-8 rounded-lg bg-[#00FF41] flex items-center justify-center">
-                <FileCode className="w-4 h-4 text-black" />
-              </div>
-              <span className="font-bold text-white">GitUp</span>
-              <span className="text-[#00FF41]">.fun</span>
+              <Image
+                src="/logopng.png"
+                alt="GitUp.fun"
+                width={32}
+                height={32}
+                className="rounded-lg"
+              />
+              <span className="font-bold">
+                <span className="text-white">GitUp</span>
+                <span className="text-[#00FF41]">.fun</span>
+              </span>
             </div>
             <div className="flex gap-6 text-sm text-white/40">
               <a href="https://x.com/gitup_fun" target="_blank" rel="noopener noreferrer" className="hover:text-[#00FF41] transition-colors">

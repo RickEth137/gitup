@@ -1,5 +1,3 @@
-// Prisma schema for GitUp.fun - Tokenize GitHub Repos & X Accounts
-
 generator client {
   provider = "prisma-client-js"
 }
@@ -9,224 +7,72 @@ datasource db {
   url      = env("DATABASE_URL")
 }
 
-// ============================================
-// User Authentication
-// ============================================
-
 model User {
-  id            String    @id @default(cuid())
-  
-  // GitHub Auth (optional - for repo ownership verification)
-  githubId      String?   @unique
-  githubLogin   String?
-  githubEmail   String?
-  githubAvatar  String?
-  githubToken   String?
-  githubCreatedAt DateTime?
-  
-  // X/Twitter Auth (optional - for X account verification)
-  twitterId     String?   @unique
-  twitterHandle String?
-  twitterName   String?
-  twitterAvatar String?
-  twitterToken  String?
-  
-  // GitLab Auth (optional - for GitLab repo verification)
-  gitlabId      String?   @unique
-  gitlabLogin   String?
-  gitlabEmail   String?
-  gitlabAvatar  String?
-  gitlabToken   String?
-  
-  // Telegram Auth (optional - for Telegram account verification)
-  telegramId    String?   @unique
-  telegramUsername String?
-  telegramName  String?
-  telegramAvatar String?
-  
-  // Instagram Auth (optional - for Instagram account verification via Meta)
-  instagramId       String?   @unique
-  instagramUsername String?
-  instagramName     String?
-  instagramAvatar   String?
-  instagramToken    String?
-  
-  // Facebook Auth (optional - for Facebook page verification via Meta)
-  facebookId        String?   @unique
-  facebookUsername  String?
-  facebookName      String?
-  facebookAvatar    String?
-  facebookToken     String?
-  
-  // General
+  id            String          @id @default(cuid())
+  githubId      String          @unique
+  githubLogin   String
   email         String?
-  createdAt     DateTime  @default(now())
-  updatedAt     DateTime  @updatedAt
-  
-  // Relations
-  launchedTokens  TokenLaunch[]  @relation("Launcher")
-  claimedTokens   TokenLaunch[]  @relation("Claimer")
-  
+  name          String?
+  avatarUrl     String?
+  accessToken   String?
+  createdAt     DateTime        @default(now())
+  accountAge    DateTime
+  TokenizedRepo TokenizedRepo[]
+  ClaimedRepos  TokenizedRepo[] @relation("ClaimedBy")
+
   @@index([githubLogin])
-  @@index([twitterHandle])
-  @@index([gitlabLogin])
-  @@index([telegramUsername])
-  @@index([instagramUsername])
-  @@index([facebookUsername])
 }
 
-// ============================================
-// Token Launch - Core entity for all tokenized assets
-// ============================================
+model LaunchAttempt {
+  id           String   @id @default(cuid())
+  repoId       String
+  repoFullName String
+  userId       String
+  status       String
+  errorMessage String?
+  createdAt    DateTime @default(now())
 
-model TokenLaunch {
-  id              String   @id @default(cuid())
-  
-  // What is being tokenized
-  entityType      String   // "github" | "twitter" | "gitlab" | "telegram" | "instagram" | "facebook"
-  entityId        String   // Repo ID, User ID, Page ID, etc.
-  entityHandle    String   // "owner/repo", "@handle", "@username", "page-name"
-  entityName      String   // Display name
-  entityAvatar    String?  // Profile pic / repo owner avatar
-  entityUrl       String   // Link to GitHub repo or X profile
-  
-  // For GitHub repos specifically
-  repoStars       Int?
-  repoForks       Int?
+  @@index([userId])
+  @@index([repoId])
+}
+
+model TokenizedRepo {
+  id              String   @id
+  repoId          String   @unique
+  repoName        String
+  repoFullName    String
   repoDescription String?
-  
-  // For X accounts specifically
-  twitterFollowers Int?
-  twitterVerified  Boolean?
-  
-  // For GitLab repos specifically
-  gitlabStars     Int?
-  gitlabForks     Int?
-  gitlabDescription String?
-  
-  // For Telegram accounts specifically
-  telegramMembers Int?      // For channels/groups
-  telegramType    String?   // "user" | "channel" | "group"
-  
-  // For Instagram accounts specifically
-  instagramFollowers Int?
-  instagramVerified  Boolean?
-  
-  // Token Info
+  repoUrl         String
+  repoStars       Int      @default(0)
+  repoForks       Int      @default(0)
   tokenName       String
   tokenSymbol     String
   tokenMint       String   @unique
-  tokenLogo       String?  // IPFS URI
-  metadataUri     String   // IPFS URI
-  
-  // Escrow Wallet (for tokens launched by non-owners)
-  escrowPublicKey  String?
-  escrowPrivateKey String?  // Encrypted - only set if launcher != owner
-  isEscrow         Boolean  @default(false)
-  
-  // Pump.fun Info
+  metadataUri     String
+  logoUri         String?
+  bannerUri       String?
   bondingCurve    String?
   transactionSig  String
-  
-  // Ownership & Claiming
-  launcherId      String   // Who launched the token
-  launcher        User     @relation("Launcher", fields: [launcherId], references: [id])
-  
-  ownerId         String?  // Verified owner (null until claimed)
-  owner           User?    @relation("Claimer", fields: [ownerId], references: [id])
-  
-  isClaimed       Boolean  @default(false)
-  claimedAt       DateTime?
-  claimedWallet   String?  // Wallet that received the claimed fees
-  
-  // Stats (updated periodically)
-  totalFeesClaimed Decimal? @db.Decimal(20, 9)
-  
-  // Timestamps
+  userId          String
   launchedAt      DateTime @default(now())
-  updatedAt       DateTime @updatedAt
+  User            User     @relation(fields: [userId], references: [id])
   
-  @@unique([entityType, entityId])
-  @@index([entityType])
-  @@index([entityHandle])
+  // Fee tracking for non-owner launches
+  // When launcher != repo owner, fees accumulate for real owner to claim
+  isEscrow          Boolean   @default(false)  // true = launched by non-owner
+  isClaimed         Boolean   @default(false)  // true = real owner claimed fees
+  claimedAt         DateTime?
+  claimedByUserId   String?
+  claimedByWallet   String?
+  ClaimedBy         User?     @relation("ClaimedBy", fields: [claimedByUserId], references: [id])
+  
+  // Fee calculation tracking (calculated from trading volume)
+  // pump.fun creator fee = 0.5% of trading volume
+  totalFeesEarned   Float     @default(0)      // Total SOL earned from fees (calculated)
+  totalFeesClaimed  Float     @default(0)      // SOL already claimed by owner
+  lastFeeUpdate     DateTime?                   // Last time we updated fee calculation
+
+  @@index([repoFullName])
   @@index([tokenMint])
-  @@index([launcherId])
-  @@index([ownerId])
-  @@index([isClaimed])
-}
-
-// ============================================
-// Fee Claims - Track all claim transactions
-// ============================================
-
-model FeeClaim {
-  id              String   @id @default(cuid())
-  
-  tokenMint       String
-  claimerWallet   String
-  
-  amountSol       Decimal  @db.Decimal(20, 9)
-  transactionSig  String
-  
-  claimedAt       DateTime @default(now())
-  
-  @@index([tokenMint])
-  @@index([claimerWallet])
-}
-
-// ============================================
-// Launch Attempts - For tracking/debugging
-// ============================================
-
-model LaunchAttempt {
-  id            String   @id @default(cuid())
-  
-  entityType    String
-  entityId      String
-  entityHandle  String
-  
-  userId        String?
-  status        String   // 'pending', 'success', 'failed'
-  errorMessage  String?
-  
-  createdAt     DateTime @default(now())
-  
-  @@index([entityType, entityId])
   @@index([userId])
-}
-
-// ============================================
-// Token Sites - Auto-generated project websites
-// ============================================
-
-model TokenSite {
-  id          String   @id @default(cuid())
-  mint        String   @unique // Token mint address
-  
-  // Basic info
-  name        String
-  symbol      String
-  description String   @db.Text
-  
-  // Media
-  image       String?  @db.Text // Base64 or URL
-  banner      String?  @db.Text // Base64 or URL
-  
-  // Social links
-  website     String?
-  twitter     String?
-  telegram    String?
-  github      String?
-  
-  // Repository info
-  readme      String?  @db.Text
-  repoName    String?
-  repoOwner   String?
-  repoStars   Int?     @default(0)
-  repoForks   Int?     @default(0)
-  
-  createdAt   DateTime @default(now())
-  updatedAt   DateTime @updatedAt
-  
-  @@index([mint])
 }

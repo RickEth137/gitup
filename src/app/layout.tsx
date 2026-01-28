@@ -16,18 +16,25 @@ export const metadata: Metadata = {
     'open source',
     'developer',
   ],
+  icons: {
+    icon: '/logopng.png',
+    shortcut: '/logopng.png',
+    apple: '/logopng.png',
+  },
   openGraph: {
     title: 'git.fun - Tokenize Your GitHub Repos',
     description:
       'Turn your open-source code into tradable assets on Solana via pump.fun.',
     type: 'website',
     url: 'https://git.fun',
+    images: ['/logopng.png'],
   },
   twitter: {
     card: 'summary_large_image',
     title: 'git.fun - Tokenize Your GitHub Repos',
     description:
       'Turn your open-source code into tradable assets on Solana via pump.fun.',
+    images: ['/logopng.png'],
   },
 };
 

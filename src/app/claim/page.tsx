@@ -3,7 +3,10 @@
 import { useSession } from 'next-auth/react';
 import { signIn } from 'next-auth/react';
 import { useState } from 'react';
-import { Github, Search, ExternalLink, CheckCircle, Wallet } from 'lucide-react';
+import { Github, Search, ExternalLink, CheckCircle, Wallet, AlertCircle, Loader2 } from 'lucide-react';
+import { useWallet, useConnection } from '@solana/wallet-adapter-react';
+import { WalletMultiButton } from '@solana/wallet-adapter-react-ui';
+import { Transaction } from '@solana/web3.js';
 
 // GitLab icon component
 const GitLabIcon = ({ className }: { className?: string }) => (
@@ -20,41 +23,63 @@ interface ClaimableToken {
   tokenName: string;
   tokenSymbol: string;
   tokenMint: string;
-  escrowBalance: number;
+  tokenLogo?: string;
+  isClaimed: boolean;
+  isEscrow: boolean;
+  escrowPublicKey?: string;
+  escrowBalance?: number;
   launchedAt: string;
 }
 
 export default function ClaimPage() {
   const { data: session } = useSession();
+  const { publicKey, signTransaction } = useWallet();
+  const { connection } = useConnection();
   const [searchQuery, setSearchQuery] = useState('');
   const [searchResults, setSearchResults] = useState<ClaimableToken[]>([]);
   const [isSearching, setIsSearching] = useState(false);
-  const [claimableTokens, setClaimableTokens] = useState<ClaimableToken[]>([]);
   const [claimingId, setClaimingId] = useState<string | null>(null);
+  const [claimError, setClaimError] = useState<string | null>(null);
+  const [claimSuccess, setClaimSuccess] = useState<string | null>(null);
 
-  // Mock search - replace with actual API call
+  // Real search using API
   const handleSearch = async () => {
     if (!searchQuery.trim()) return;
     
     setIsSearching(true);
-    // TODO: Replace with actual API call
-    await new Promise(resolve => setTimeout(resolve, 1000));
+    setClaimError(null);
+    setClaimSuccess(null);
     
-    // Mock results
-    setSearchResults([
-      {
-        id: '1',
-        entityType: 'github',
-        entityHandle: searchQuery.includes('/') ? searchQuery : `user/${searchQuery}`,
-        entityName: searchQuery,
-        tokenName: `${searchQuery.split('/').pop()} Token`,
-        tokenSymbol: searchQuery.split('/').pop()?.slice(0, 4).toUpperCase() || 'TKN',
-        tokenMint: 'So111...xyz',
-        escrowBalance: 1.234,
-        launchedAt: new Date().toISOString(),
-      },
-    ]);
-    setIsSearching(false);
+    try {
+      const response = await fetch(`/api/tokens/search?q=${encodeURIComponent(searchQuery)}`);
+      if (response.ok) {
+        const data = await response.json();
+        // Fetch escrow balances for unclaimed tokens
+        const tokens = data.tokens || [];
+        const tokensWithBalances = await Promise.all(
+          tokens.map(async (token: ClaimableToken) => {
+            if (token.isEscrow && !token.isClaimed) {
+              try {
+                const balanceRes = await fetch(`/api/claim/execute?tokenMint=${token.tokenMint}`);
+                const balanceData = await balanceRes.json();
+                return { ...token, escrowBalance: balanceData.escrowBalance || 0 };
+              } catch {
+                return token;
+              }
+            }
+            return token;
+          })
+        );
+        setSearchResults(tokensWithBalances);
+      } else {
+        setSearchResults([]);
+      }
+    } catch (error) {
+      console.error('Search error:', error);
+      setSearchResults([]);
+    } finally {
+      setIsSearching(false);
+    }
   };
 
   const handleClaim = async (token: ClaimableToken) => {
@@ -62,11 +87,76 @@ export default function ClaimPage() {
       signIn('github');
       return;
     }
+
+    if (!publicKey || !signTransaction) {
+      setClaimError('Please connect your Solana wallet to receive funds');
+      return;
+    }
     
     setClaimingId(token.id);
-    // TODO: Implement actual claim logic
-    await new Promise(resolve => setTimeout(resolve, 2000));
-    setClaimingId(null);
+    setClaimError(null);
+    setClaimSuccess(null);
+    
+    try {
+      // Step 1: Request claim transaction from server
+      const executeRes = await fetch('/api/claim/execute', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ 
+          tokenMint: token.tokenMint,
+          claimerWallet: publicKey.toBase58(),
+        }),
+      });
+      
+      const executeData = await executeRes.json();
+      
+      if (!executeRes.ok) {
+        setClaimError(executeData.error || 'Failed to create claim transaction');
+        return;
+      }
+
+      // Step 2: Sign the transaction (user pays the fee)
+      const transactionBuffer = Buffer.from(executeData.transaction, 'base64');
+      const transaction = Transaction.from(transactionBuffer);
+      
+      // Sign with user's wallet
+      const signedTx = await signTransaction(transaction);
+      
+      // Step 3: Send to network
+      const signature = await connection.sendRawTransaction(signedTx.serialize());
+      await connection.confirmTransaction(signature, 'confirmed');
+      
+      // Step 4: Confirm with backend
+      const confirmRes = await fetch('/api/claim/confirm', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          tokenMint: token.tokenMint,
+          transactionSig: signature,
+          claimerWallet: publicKey.toBase58(),
+          amountClaimed: executeData.escrowBalance,
+        }),
+      });
+      
+      if (!confirmRes.ok) {
+        const confirmData = await confirmRes.json();
+        setClaimError(confirmData.error || 'Failed to confirm claim');
+        return;
+      }
+
+      setClaimSuccess(`Successfully claimed ${executeData.escrowBalance.toFixed(4)} SOL! TX: ${signature.slice(0, 8)}...`);
+      
+      // Update the token in search results
+      setSearchResults(prev => 
+        prev.map(t => t.id === token.id ? { ...t, isClaimed: true, escrowBalance: 0 } : t)
+      );
+      
+    } catch (error) {
+      console.error('Claim error:', error);
+      setClaimError(error instanceof Error ? error.message : 'Failed to process claim');
+    } finally {
+      setClaimingId(null);
+    }
   };
 
   return (
@@ -137,6 +227,32 @@ export default function ClaimPage() {
               <span className="px-3 py-1.5 bg-white/5 rounded text-xs text-white/40">Coming Soon</span>
             </div>
           </div>
+
+          {/* Wallet Connection */}
+          <div className="p-4 rounded-xl border border-white/5 bg-white/[0.02]">
+            <div className="flex items-center justify-between">
+              <div className="flex items-center gap-3">
+                <div className={`w-10 h-10 rounded-full ${publicKey ? 'bg-[#00FF41]/10' : 'bg-white/5'} flex items-center justify-center`}>
+                  <Wallet className={`w-5 h-5 ${publicKey ? 'text-[#00FF41]' : 'text-white/40'}`} />
+                </div>
+                <div>
+                  <p className="font-medium text-white text-sm">Solana Wallet</p>
+                  {publicKey ? (
+                    <p className="text-xs text-[#00FF41]">
+                      {publicKey.toBase58().slice(0, 8)}...{publicKey.toBase58().slice(-8)}
+                    </p>
+                  ) : (
+                    <p className="text-xs text-white/40">To receive claimed fees</p>
+                  )}
+                </div>
+              </div>
+              {publicKey ? (
+                <CheckCircle className="w-5 h-5 text-[#00FF41]" />
+              ) : (
+                <WalletMultiButton className="!bg-white/5 !border !border-white/10 !rounded-lg !text-white/70 hover:!bg-white/10 !text-sm !h-auto !py-2" />
+              )}
+            </div>
+          </div>
         </div>
 
         {/* Search */}
@@ -167,6 +283,18 @@ export default function ClaimPage() {
         {searchResults.length > 0 && (
           <div className="mb-8">
             <h2 className="text-lg font-semibold text-white mb-4">Search Results</h2>
+            {claimError && (
+              <div className="mb-4 p-3 rounded-lg bg-red-500/10 border border-red-500/20 text-red-400 text-sm flex items-center gap-2">
+                <AlertCircle className="w-4 h-4" />
+                {claimError}
+              </div>
+            )}
+            {claimSuccess && (
+              <div className="mb-4 p-3 rounded-lg bg-[#00FF41]/10 border border-[#00FF41]/20 text-[#00FF41] text-sm flex items-center gap-2">
+                <CheckCircle className="w-4 h-4" />
+                {claimSuccess}
+              </div>
+            )}
             <div className="space-y-3">
               {searchResults.map((token) => (
                 <TokenCard
@@ -174,7 +302,8 @@ export default function ClaimPage() {
                   token={token}
                   onClaim={() => handleClaim(token)}
                   isClaiming={claimingId === token.id}
-                  canClaim={!!session}
+                  canClaim={!!session && !!publicKey}
+                  walletConnected={!!publicKey}
                 />
               ))}
             </div>
@@ -224,11 +353,13 @@ function TokenCard({
   onClaim,
   isClaiming,
   canClaim,
+  walletConnected,
 }: {
   token: ClaimableToken;
   onClaim: () => void;
   isClaiming: boolean;
   canClaim: boolean;
+  walletConnected: boolean;
 }) {
   const getIcon = () => {
     switch (token.entityType) {
@@ -252,12 +383,53 @@ function TokenCard({
     }
   };
 
+  // Determine button state
+  const getButtonContent = () => {
+    if (isClaiming) {
+      return (
+        <>
+          <Loader2 className="w-4 h-4 animate-spin" />
+          Claiming...
+        </>
+      );
+    }
+    
+    if (!canClaim) {
+      return (
+        <>
+          <CheckCircle className="w-4 h-4" />
+          Connect to Claim
+        </>
+      );
+    }
+
+    if (token.escrowBalance && token.escrowBalance > 0) {
+      return (
+        <>
+          <Wallet className="w-4 h-4" />
+          Claim {token.escrowBalance.toFixed(4)} SOL
+        </>
+      );
+    }
+
+    return (
+      <>
+        <Wallet className="w-4 h-4" />
+        Verify & Claim
+      </>
+    );
+  };
+
   return (
     <div className="p-4 rounded-xl border border-white/5 bg-white/[0.02] hover:border-white/10 transition-all">
       <div className="flex items-center justify-between">
         <div className="flex items-center gap-4">
-          <div className="w-12 h-12 rounded-xl bg-white/5 flex items-center justify-center">
-            {getIcon()}
+          <div className="w-12 h-12 rounded-xl bg-white/5 flex items-center justify-center overflow-hidden">
+            {token.tokenLogo ? (
+              <img src={token.tokenLogo} alt="" className="w-full h-full object-cover" />
+            ) : (
+              getIcon()
+            )}
           </div>
           <div>
             <div className="flex items-center gap-2">
@@ -275,32 +447,34 @@ function TokenCard({
               </a>
             </div>
             <p className="text-sm text-white/40">
-              ${token.tokenSymbol} · <span className="text-[#00FF41]">{token.escrowBalance.toFixed(3)} SOL</span> in escrow
+              ${token.tokenSymbol} · {token.tokenName}
             </p>
+            {token.isClaimed && (
+              <p className="text-xs text-[#00FF41] flex items-center gap-1 mt-1">
+                <CheckCircle className="w-3 h-3" /> Claimed
+              </p>
+            )}
+            {!token.isClaimed && token.isEscrow && token.escrowBalance !== undefined && (
+              <p className="text-xs text-yellow-400/80 mt-1">
+                Escrow: {token.escrowBalance.toFixed(4)} SOL available
+              </p>
+            )}
+            {!token.isClaimed && !token.isEscrow && (
+              <p className="text-xs text-white/30 mt-1">
+                Launched by owner - no escrow fees
+              </p>
+            )}
           </div>
         </div>
-        <button
-          onClick={onClaim}
-          disabled={isClaiming}
-          className="flex items-center gap-2 px-5 py-2.5 bg-[#00FF41] text-black font-semibold rounded-lg hover:bg-[#00FF41]/90 transition-all disabled:opacity-50"
-        >
-          {isClaiming ? (
-            <>
-              <span className="w-4 h-4 border-2 border-black/30 border-t-black rounded-full animate-spin" />
-              Claiming...
-            </>
-          ) : canClaim ? (
-            <>
-              <Wallet className="w-4 h-4" />
-              Claim
-            </>
-          ) : (
-            <>
-              <CheckCircle className="w-4 h-4" />
-              Verify to Claim
-            </>
-          )}
-        </button>
+        {!token.isClaimed && token.isEscrow && (
+          <button
+            onClick={onClaim}
+            disabled={isClaiming || (token.escrowBalance !== undefined && token.escrowBalance === 0)}
+            className="flex items-center gap-2 px-5 py-2.5 bg-[#00FF41] text-black font-semibold rounded-lg hover:bg-[#00FF41]/90 transition-all disabled:opacity-50"
+          >
+            {getButtonContent()}
+          </button>
+        )}
       </div>
     </div>
   );

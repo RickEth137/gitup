@@ -1,8 +1,9 @@
 'use client';
 
 import Link from 'next/link';
-import { GitBranch, ExternalLink, ChevronRight, ChevronDown, Check, AlertCircle, Info, Zap } from 'lucide-react';
+import { ExternalLink, ChevronRight, ChevronDown, Check, AlertCircle, Info, Zap } from 'lucide-react';
 import { useState, useMemo } from 'react';
+import Image from 'next/image';
 
 // Star particles background
 function StarParticles() {
@@ -205,7 +206,7 @@ export default function DocsPage() {
                 href="/launch"
                 className="flex items-center gap-2 px-3 py-2 text-sm text-[#00FF41] hover:bg-[#00FF41]/10 rounded-lg transition-colors"
               >
-                <GitBranch className="w-4 h-4" />
+                <Image src="/logopng.png" alt="GitUp.fun" width={16} height={16} />
                 Tokenize Your Repo
               </Link>
             </div>
@@ -497,7 +498,7 @@ Status: TOKENIZED`}</CodeBlock>
                 href="/launch"
                 className="inline-flex items-center gap-2 bg-[#00FF41] text-black font-semibold px-6 py-3 rounded-lg hover:bg-[#00FF41]/90 transition-colors shrink-0"
               >
-                <GitBranch className="w-4 h-4" />
+                <Image src="/logopng.png" alt="GitUp.fun" width={16} height={16} />
                 Tokenize Your Repo
               </Link>
             </div>

@@ -1,9 +1,10 @@
 'use client';
 
-import { ExternalLink, Copy, CheckCircle, GitBranch, Twitter, Share2 } from 'lucide-react';
+import { ExternalLink, Copy, CheckCircle, Twitter, Share2 } from 'lucide-react';
 import { useLaunchStore } from '@/store/launchStore';
 import { getPumpFunUrl } from '@/lib/pumpfun';
 import { useState } from 'react';
+import Image from 'next/image';
 
 export function LaunchSuccess() {
   const { selectedRepo, tokenMetadata, tokenMint, transactionSig } = useLaunchStore();
@@ -56,7 +57,7 @@ export function LaunchSuccess() {
             />
           ) : (
             <div className="w-14 h-14 rounded-full bg-surface flex items-center justify-center border border-border">
-              <GitBranch className="w-6 h-6 text-secondary" />
+              <Image src="/logopng.png" alt="GitUp.fun" width={24} height={24} />
             </div>
           )}
           <div className="text-left">
@@ -117,7 +118,7 @@ export function LaunchSuccess() {
           rel="noopener noreferrer"
           className="btn-primary flex items-center justify-center gap-2 flex-1"
         >
-          <GitBranch className="w-4 h-4" />
+          <Image src="/logopng.png" alt="GitUp.fun" width={16} height={16} />
           Trade on pump.fun
         </a>
 

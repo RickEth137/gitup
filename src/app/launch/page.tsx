@@ -4,7 +4,8 @@ import { useState, useRef, useEffect, useMemo } from 'react';
 import { useSession, signIn } from 'next-auth/react';
 import { useWallet, useConnection } from '@solana/wallet-adapter-react';
 import { WalletMultiButton } from '@solana/wallet-adapter-react-ui';
-import { Github, Twitter, ArrowRight, ArrowLeft, Wallet, CheckCircle, AlertCircle, Search, Star, GitFork, ExternalLink, Send, Instagram, Facebook, ImageIcon, MapPin, Building2, Link as LinkIcon, Users, Calendar, Gift, GitBranch, Globe, FileText } from 'lucide-react';
+import { Github, Twitter, ArrowRight, ArrowLeft, Wallet, CheckCircle, AlertCircle, Search, Star, GitFork, ExternalLink, Send, Instagram, Facebook, ImageIcon, MapPin, Building2, Link as LinkIcon, Users, Calendar, Gift, Globe, FileText } from 'lucide-react';
+import Image from 'next/image';
 import { calculateSolCostForSupply, createToken, CreateTokenResult } from '@/lib/pumpfun';
 import { useSolPrice } from '@/lib/useSolPrice';
 
@@ -583,6 +584,41 @@ export default function LaunchPage() {
 
       console.log('Token created:', result);
       
+      // CRITICAL: Save the token launch to database
+      if (selectedEntity && result.mint) {
+        try {
+          const launchResponse = await fetch('/api/launch', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+              repoId: String(selectedEntity.id),
+              repoName: selectedEntity.name,
+              repoFullName: selectedEntity.full_name,
+              repoDescription: selectedEntity.description || '',
+              repoUrl: selectedEntity.html_url,
+              repoStars: selectedEntity.stargazers_count || 0,
+              repoForks: selectedEntity.forks_count || 0,
+              tokenName,
+              tokenSymbol,
+              tokenMint: result.mint,
+              metadataUri: result.metadataUri,
+              logoUri: tokenLogoPreview || '',
+              transactionSig: result.signature,
+            }),
+          });
+          
+          if (!launchResponse.ok) {
+            const errorData = await launchResponse.json();
+            console.warn('Failed to save launch to database:', errorData);
+            // Don't fail the whole launch if DB save fails - token is already created
+          } else {
+            console.log('Token launch saved to database');
+          }
+        } catch (dbError) {
+          console.warn('Failed to save launch to database:', dbError);
+        }
+      }
+      
       // Save site data for auto-generated website
       if (autoGenerateWebsite && result.mint) {
         const siteData = {
@@ -600,6 +636,7 @@ export default function LaunchPage() {
           repoOwner: selectedEntity?.owner?.login || '',
           repoStars: selectedEntity?.stargazers_count || 0,
           repoForks: selectedEntity?.forks_count || 0,
+          aiContent: generatedSiteContent || undefined,
         };
         
         // Save to localStorage for immediate access
@@ -1534,7 +1571,7 @@ export default function LaunchPage() {
           </>
         ) : (
           <>
-            <GitBranch className="w-5 h-5" />
+            <Image src="/logopng.png" alt="GitUp.fun" width={20} height={20} />
             Tokenize on pump.fun
           </>
         )}

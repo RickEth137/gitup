@@ -56,17 +56,19 @@ export const authOptions: NextAuthOptions = {
             where: { githubId: String(githubProfile.id) },
             update: {
               githubLogin: githubProfile.login,
-              githubEmail: githubProfile.email,
-              githubAvatar: githubProfile.avatar_url,
-              githubToken: account.access_token,
+              email: githubProfile.email,
+              name: githubProfile.name,
+              avatarUrl: githubProfile.avatar_url,
+              accessToken: account.access_token,
             },
             create: {
               githubId: String(githubProfile.id),
               githubLogin: githubProfile.login,
-              githubEmail: githubProfile.email,
-              githubAvatar: githubProfile.avatar_url,
-              githubToken: account.access_token,
-              githubCreatedAt: accountCreatedAt,
+              email: githubProfile.email,
+              name: githubProfile.name,
+              avatarUrl: githubProfile.avatar_url,
+              accessToken: account.access_token,
+              accountAge: accountCreatedAt,
             },
           });
         } catch (error) {
@@ -74,39 +76,8 @@ export const authOptions: NextAuthOptions = {
         }
       }
 
-      // GitLab sign in
-      if (account?.provider === 'gitlab' && profile) {
-        const gitlabProfile = profile as {
-          id: number;
-          username: string;
-          email?: string;
-          name?: string;
-          avatar_url?: string;
-          created_at?: string;
-        };
-
-        // Upsert user in database
-        try {
-          await prisma.user.upsert({
-            where: { gitlabId: String(gitlabProfile.id) },
-            update: {
-              gitlabLogin: gitlabProfile.username,
-              gitlabEmail: gitlabProfile.email,
-              gitlabAvatar: gitlabProfile.avatar_url,
-              gitlabToken: account.access_token,
-            },
-            create: {
-              gitlabId: String(gitlabProfile.id),
-              gitlabLogin: gitlabProfile.username,
-              gitlabEmail: gitlabProfile.email,
-              gitlabAvatar: gitlabProfile.avatar_url,
-              gitlabToken: account.access_token,
-            },
-          });
-        } catch (error) {
-          console.error('Error saving GitLab user:', error);
-        }
-      }
+      // GitLab sign in - just allow it, no DB storage for now
+      // (GitLab fields not in current schema)
 
       return true;
     },
@@ -118,11 +89,25 @@ export const authOptions: NextAuthOptions = {
         if (account.provider === 'github') {
           token.githubId = (profile as { id?: number })?.id;
           token.githubLogin = (profile as { login?: string })?.login;
+          
+          // Get the database user ID
+          try {
+            const user = await prisma.user.findUnique({
+              where: { githubId: String(token.githubId) },
+              select: { id: true },
+            });
+            if (user) {
+              token.userId = user.id;
+            }
+          } catch (error) {
+            console.error('Error fetching user ID:', error);
+          }
         }
         
         if (account.provider === 'gitlab') {
           token.gitlabId = (profile as { id?: number })?.id;
           token.gitlabLogin = (profile as { username?: string })?.username;
+          // GitLab DB storage not implemented yet
         }
       }
       return token;
@@ -134,6 +119,7 @@ export const authOptions: NextAuthOptions = {
         provider: token.provider,
         user: {
           ...session.user,
+          id: token.userId,
           githubId: token.githubId,
           githubLogin: token.githubLogin,
           gitlabId: token.gitlabId,

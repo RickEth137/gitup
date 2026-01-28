@@ -6,7 +6,7 @@ import { signIn, signOut, useSession } from 'next-auth/react';
 import Image from 'next/image';
 import Link from 'next/link';
 import { useState, useEffect } from 'react';
-import { Github, LogOut, GitBranch, Gift, User } from 'lucide-react';
+import { Github, LogOut, Gift, User } from 'lucide-react';
 
 export function Header() {
   const { data: session, status } = useSession();
@@ -23,12 +23,18 @@ export function Header() {
       <div className="max-w-6xl mx-auto px-6 relative">
         <div className="flex items-center justify-between h-16">
           {/* Logo */}
-          <Link href="/" className="flex items-center gap-2 group">
-            <div className="w-8 h-8 rounded-lg bg-[#00FF41] flex items-center justify-center group-hover:shadow-[0_0_20px_rgba(0,255,65,0.5)] transition-shadow">
-              <GitBranch className="w-4 h-4 text-black" />
-            </div>
-            <span className="text-lg font-bold text-white">GitUp</span>
-            <span className="text-[#00FF41]">.fun</span>
+          <Link href="/" className="flex items-center gap-2">
+            <Image
+              src="/logopng.png"
+              alt="GitUp.fun"
+              width={32}
+              height={32}
+              className="rounded-lg"
+            />
+            <span className="text-lg font-bold">
+              <span className="text-white">GitUp</span>
+              <span className="text-[#00FF41]">.fun</span>
+            </span>
           </Link>
 
           {/* Navigation - Absolute center */}

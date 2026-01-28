@@ -3,6 +3,13 @@ import { NextRequest, NextResponse } from 'next/server';
 import { authOptions } from '@/lib/auth';
 import prisma from '@/lib/prisma';
 
+/**
+ * IMPORTANT: This endpoint is for OWNER launches only (client-side deployment)
+ * 
+ * For NON-OWNER launches, use /api/deploy which deploys via master wallet
+ * so creator fees go to our wallet and can be tracked per-token.
+ */
+
 interface LaunchRequestBody {
   repoId: string;
   repoName: string;
@@ -20,12 +27,46 @@ interface LaunchRequestBody {
   transactionSig: string;
 }
 
+/**
+ * Check if the authenticated user is the owner of the repo
+ */
+async function checkRepoOwnership(
+  repoFullName: string, 
+  accessToken: string,
+  githubLogin: string
+): Promise<{ isOwner: boolean; hasAdminAccess: boolean }> {
+  try {
+    const response = await fetch(
+      `https://api.github.com/repos/${repoFullName}`,
+      {
+        headers: {
+          Authorization: `Bearer ${accessToken}`,
+          Accept: 'application/vnd.github.v3+json',
+        },
+      }
+    );
+
+    if (!response.ok) {
+      return { isOwner: false, hasAdminAccess: false };
+    }
+
+    const repo = await response.json();
+    const isOwner = repo.owner.login.toLowerCase() === githubLogin.toLowerCase();
+    const hasAdminAccess = repo.permissions?.admin === true;
+
+    return { isOwner, hasAdminAccess };
+  } catch (error) {
+    console.error('Error checking repo ownership:', error);
+    return { isOwner: false, hasAdminAccess: false };
+  }
+}
+
 // Record a successful token launch
 export async function POST(request: NextRequest) {
   try {
     const session = await getServerSession(authOptions);
 
-    if (!session || !(session as { user?: { githubId?: string } }).user?.githubId) {
+    if (!session?.user?.githubId) {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
     }
 
@@ -55,7 +96,7 @@ export async function POST(request: NextRequest) {
 
     // Get user from database
     const user = await prisma.user.findUnique({
-      where: { githubId: String((session as { user?: { githubId?: string } }).user?.githubId) },
+      where: { githubId: String(session.user.githubId) },
     });
 
     if (!user) {
@@ -63,11 +104,8 @@ export async function POST(request: NextRequest) {
     }
 
     // Check if repo is already tokenized
-    const existingToken = await prisma.tokenLaunch.findFirst({
-      where: { 
-        entityType: 'github',
-        entityId: body.repoId 
-      },
+    const existingToken = await prisma.tokenizedRepo.findFirst({
+      where: { repoId: body.repoId },
     });
 
     if (existingToken) {
@@ -77,35 +115,68 @@ export async function POST(request: NextRequest) {
       );
     }
 
+    // Check if launcher is the repo owner
+    let isOwner = false;
+
+    if (user.accessToken && user.githubLogin) {
+      const ownership = await checkRepoOwnership(
+        body.repoFullName,
+        user.accessToken,
+        user.githubLogin
+      );
+      isOwner = ownership.isOwner || ownership.hasAdminAccess;
+    }
+
+    // NOTE: Non-owner launches should use /api/deploy (master wallet deployment)
+    // This endpoint records launches where user's wallet deployed (owner launches)
+    // For backwards compatibility, we still record non-owner launches but warn
+    if (!isOwner) {
+      console.warn(`Non-owner launch via /api/launch - fees will go to user's wallet, not claimable by owner!`);
+      console.warn(`Use /api/deploy for non-owner launches to enable fee claiming.`);
+    }
+
     // Record the launch
-    const tokenLaunch = await prisma.tokenLaunch.create({
+    const tokenizedRepo = await prisma.tokenizedRepo.create({
       data: {
-        entityType: 'github',
-        entityId: body.repoId,
-        entityHandle: body.repoFullName,
-        entityName: body.repoName,
-        entityUrl: body.repoUrl,
+        id: `${body.repoId}-${Date.now()}`,
+        repoId: body.repoId,
+        repoName: body.repoName,
+        repoFullName: body.repoFullName,
+        repoDescription: body.repoDescription,
+        repoUrl: body.repoUrl,
         repoStars: body.repoStars,
         repoForks: body.repoForks,
-        repoDescription: body.repoDescription,
         tokenName: body.tokenName,
         tokenSymbol: body.tokenSymbol,
         tokenMint: body.tokenMint,
         metadataUri: body.metadataUri,
-        tokenLogo: body.logoUri,
+        logoUri: body.logoUri,
         bondingCurve: body.bondingCurve,
         transactionSig: body.transactionSig,
-        launcherId: user.id,
+        userId: user.id,
+        // Fee tracking fields
+        isEscrow: !isOwner,  // Non-owner launches need claiming
+        isClaimed: isOwner,  // Owner launches are "claimed" immediately
+        claimedByUserId: isOwner ? user.id : null,
+        claimedAt: isOwner ? new Date() : null,
+        totalFeesEarned: 0,
+        totalFeesClaimed: 0,
       },
     });
 
     return NextResponse.json({
       success: true,
-      tokenLaunch: {
-        id: tokenLaunch.id,
-        tokenMint: tokenLaunch.tokenMint,
-        transactionSig: tokenLaunch.transactionSig,
+      tokenizedRepo: {
+        id: tokenizedRepo.id,
+        tokenMint: tokenizedRepo.tokenMint,
+        transactionSig: tokenizedRepo.transactionSig,
+        isEscrow: tokenizedRepo.isEscrow,
+        isOwner,
       },
+      // Warn if non-owner used wrong endpoint
+      warning: !isOwner 
+        ? 'For non-owner launches, use /api/deploy to enable fee claiming by repo owner'
+        : undefined,
     });
   } catch (error) {
     console.error('Error recording launch:', error);
@@ -123,21 +194,21 @@ export async function GET(request: NextRequest) {
     const limit = parseInt(searchParams.get('limit') || '20');
     const offset = parseInt(searchParams.get('offset') || '0');
 
-    const launches = await prisma.tokenLaunch.findMany({
+    const launches = await prisma.tokenizedRepo.findMany({
       take: limit,
       skip: offset,
       orderBy: { launchedAt: 'desc' },
       include: {
-        launcher: {
+        User: {
           select: {
             githubLogin: true,
-            githubAvatar: true,
+            avatarUrl: true,
           },
         },
       },
     });
 
-    const total = await prisma.tokenLaunch.count();
+    const total = await prisma.tokenizedRepo.count();
 
     return NextResponse.json({
       launches,
