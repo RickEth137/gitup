@@ -475,7 +475,7 @@ export default function HomePage() {
               </span>
             </div>
             <div className="flex gap-6 text-sm text-white/40">
-              <a href="https://x.com/gitup_fun" target="_blank" rel="noopener noreferrer" className="hover:text-[#00FF41] transition-colors">
+              <a href="https://x.com/Gitupfun" target="_blank" rel="noopener noreferrer" className="hover:text-[#00FF41] transition-colors">
                 Twitter
               </a>
               <a href="https://github.com/gitup-fun" target="_blank" rel="noopener noreferrer" className="hover:text-[#00FF41] transition-colors">
