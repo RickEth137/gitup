@@ -134,7 +134,7 @@ export default function HomePage() {
               href="/launch"
               className="group relative inline-flex items-center gap-3 px-8 py-4 bg-[#00FF41] text-black font-semibold rounded-xl hover:bg-[#00FF41]/90 transition-all duration-300 hover:scale-105 hover:shadow-[0_0_40px_rgba(0,255,65,0.3)]"
             >
-              <Image src="/logopng.png" alt="" width={20} height={20} />
+              <Image src="/logo3.png" alt="" width={24} height={24} className="brightness-0" />
               Tokenize Repo
               <ArrowRight className="w-5 h-5 group-hover:translate-x-1 transition-transform" />
             </Link>
@@ -431,7 +431,7 @@ export default function HomePage() {
                 href="/launch"
                 className="inline-flex items-center justify-center gap-2 px-8 py-3 bg-[#00FF41] text-black font-semibold rounded-xl hover:bg-[#00FF41]/90 transition-all hover:shadow-[0_0_30px_rgba(0,255,65,0.2)]"
               >
-                <Image src="/logopng.png" alt="" width={20} height={20} />
+                <Image src="/logo3.png" alt="" width={24} height={24} className="brightness-0" />
                 Tokenize Repo
               </Link>
               <Link
@@ -452,7 +452,7 @@ export default function HomePage() {
           <div className="flex flex-col md:flex-row justify-between items-center gap-4">
             <div className="flex items-center gap-2">
               <Image
-                src="/logopng.png"
+                src="/logo3.png"
                 alt="GitUp.fun"
                 width={32}
                 height={32}

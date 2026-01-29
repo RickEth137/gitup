@@ -186,7 +186,7 @@ export default function TokenPage() {
     return (
       <div className="min-h-screen bg-[#0a0a0a] pt-20">
         <div className="max-w-4xl mx-auto px-6 py-20 text-center">
-          <Image src="/logopng.png" alt="" width={64} height={64} className="mx-auto mb-4 opacity-20" />
+          <Image src="/logo3.png" alt="" width={64} height={64} className="mx-auto mb-4 opacity-20" />
           <h1 className="text-2xl text-white mb-4">Token Not Found</h1>
           <p className="text-white/50 mb-8">{error || 'This token does not exist'}</p>
           <Link href="/explore" className="inline-flex items-center gap-2 text-[#00FF41] hover:underline">

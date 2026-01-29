@@ -175,7 +175,7 @@ export default function ProfilePage() {
               
               {/* GitUp.fun badge */}
               <div className="flex items-center justify-center gap-2 mb-8">
-                <Image src="/logopng.png" alt="GitUp.fun" width={28} height={28} className="rounded-lg" />
+                <Image src="/logo3.png" alt="GitUp.fun" width={28} height={28} className="rounded-lg" />
                 <span className="text-white font-bold text-lg tracking-wide">GITUP.FUN</span>
               </div>
               
@@ -347,7 +347,7 @@ export default function ProfilePage() {
                 </div>
               ) : launchedTokens.length === 0 ? (
                 <div className="text-center py-12">
-                  <Image src="/logopng.png" alt="GitUp.fun" width={48} height={48} className="mx-auto mb-4 opacity-20" />
+                  <Image src="/logo3.png" alt="GitUp.fun" width={48} height={48} className="mx-auto mb-4 opacity-20" />
                   <p className="text-white/40 mb-2">No tokens launched yet</p>
                   <p className="text-white/30 text-sm mb-6">Connect with GitHub and launch your first repo token!</p>
                   <a

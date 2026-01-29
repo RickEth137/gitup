@@ -125,7 +125,7 @@ export default function TokenSitePage() {
     return (
       <div className="min-h-screen bg-[#0a0a0a] flex items-center justify-center">
         <div className="text-center">
-          <Image src="/logopng.png" alt="GitUp.fun" width={64} height={64} className="mx-auto mb-4 opacity-20" />
+          <Image src="/logo3.png" alt="GitUp.fun" width={64} height={64} className="mx-auto mb-4 opacity-20" />
           <h1 className="text-white text-xl font-bold mb-2">Site Not Found</h1>
           <p className="text-white/50">This project site doesn't exist yet.</p>
         </div>
@@ -382,7 +382,7 @@ export default function TokenSitePage() {
           <div className="border border-white/10 rounded-2xl bg-white/[0.02] overflow-hidden">
             <div className="px-6 py-4 border-b border-white/10 bg-white/[0.02]">
               <h2 className="text-white font-bold flex items-center gap-2">
-                <Image src="/logopng.png" alt="GitUp.fun" width={20} height={20} />
+                <Image src="/logo3.png" alt="GitUp.fun" width={20} height={20} />
                 README
               </h2>
             </div>
@@ -419,7 +419,7 @@ export default function TokenSitePage() {
               rel="noopener noreferrer"
               className="flex items-center gap-2 text-white/50 hover:text-[#00FF41] transition-colors"
             >
-              <Image src="/logopng.png" alt="GitUp.fun" width={24} height={24} className="rounded-lg" />
+              <Image src="/logo3.png" alt="GitUp.fun" width={24} height={24} className="rounded-lg" />
               <span className="font-bold">Powered by GitUp.fun</span>
             </a>
             

@@ -27,7 +27,10 @@ interface ClaimableToken {
   isClaimed: boolean;
   isEscrow: boolean;
   escrowPublicKey?: string;
-  escrowBalance?: number;
+  escrowBalance?: number; // Claimable creator fees in SOL
+  totalFeesEarned?: number; // Total creator fees earned
+  totalFeesClaimed?: number; // Already claimed
+  tradingVolume?: number; // Total trading volume
   launchedAt: string;
   repoStars?: number;
   repoForks?: number;
@@ -565,14 +568,22 @@ function TokenCard({
                 <CheckCircle className="w-3 h-3" /> Claimed
               </p>
             )}
-            {!token.isClaimed && token.isEscrow && token.escrowBalance !== undefined && (
-              <p className="text-xs text-yellow-400/80 mt-1">
-                Escrow: {token.escrowBalance.toFixed(4)} SOL available
-              </p>
+            {!token.isClaimed && token.isEscrow && (
+              <div className="mt-2">
+                {token.escrowBalance !== undefined && token.escrowBalance > 0 ? (
+                  <p className="text-sm text-[#00FF41] font-medium">
+                    💰 Claimable Fees: {token.escrowBalance.toFixed(4)} SOL
+                  </p>
+                ) : (
+                  <p className="text-xs text-white/40">
+                    No fees to claim yet
+                  </p>
+                )}
+              </div>
             )}
             {!token.isClaimed && !token.isEscrow && (
               <p className="text-xs text-white/30 mt-1">
-                Launched by owner - no escrow fees
+                Launched by owner - fees go directly to owner wallet
               </p>
             )}
           </div>

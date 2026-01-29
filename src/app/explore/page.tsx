@@ -255,7 +255,7 @@ export default function ExplorePage() {
           </div>
         ) : filteredLaunches.length === 0 ? (
           <div className="text-center py-20">
-            <Image src="/logopng.png" alt="" width={64} height={64} className="mx-auto mb-4 opacity-20" />
+            <Image src="/logo3.png" alt="" width={64} height={64} className="mx-auto mb-4 opacity-20" />
             <p className="text-white/40 text-sm mb-6">
               {searchQuery ? 'No tokens match your search' : 'No tokens launched yet'}
             </p>

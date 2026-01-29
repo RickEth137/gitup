@@ -1566,7 +1566,7 @@ export default function LaunchPage() {
           </>
         ) : (
           <>
-            <Image src="/logopng.png" alt="GitUp.fun" width={20} height={20} />
+            <Image src="/logo3.png" alt="GitUp.fun" width={20} height={20} />
             Tokenize on pump.fun
           </>
         )}

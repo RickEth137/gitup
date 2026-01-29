@@ -206,7 +206,7 @@ export default function DocsPage() {
                 href="/launch"
                 className="flex items-center gap-2 px-3 py-2 text-sm text-[#00FF41] hover:bg-[#00FF41]/10 rounded-lg transition-colors"
               >
-                <Image src="/logopng.png" alt="GitUp.fun" width={16} height={16} />
+                <Image src="/logo3.png" alt="GitUp.fun" width={16} height={16} />
                 Tokenize Your Repo
               </Link>
             </div>
@@ -498,7 +498,7 @@ Status: TOKENIZED`}</CodeBlock>
                 href="/launch"
                 className="inline-flex items-center gap-2 bg-[#00FF41] text-black font-semibold px-6 py-3 rounded-lg hover:bg-[#00FF41]/90 transition-colors shrink-0"
               >
-                <Image src="/logopng.png" alt="GitUp.fun" width={16} height={16} />
+                <Image src="/logo3.png" alt="GitUp.fun" width={16} height={16} />
                 Tokenize Your Repo
               </Link>
             </div>

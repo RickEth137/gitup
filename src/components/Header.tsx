@@ -25,7 +25,7 @@ export function Header() {
           {/* Logo */}
           <Link href="/" className="flex items-center gap-2">
             <Image
-              src="/logopng.png"
+              src="/logo3.png"
               alt="GitUp.fun"
               width={32}
               height={32}

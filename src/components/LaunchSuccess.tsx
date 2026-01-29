@@ -57,7 +57,7 @@ export function LaunchSuccess() {
             />
           ) : (
             <div className="w-14 h-14 rounded-full bg-surface flex items-center justify-center border border-border">
-              <Image src="/logopng.png" alt="GitUp.fun" width={24} height={24} />
+              <Image src="/logo3.png" alt="GitUp.fun" width={24} height={24} />
             </div>
           )}
           <div className="text-left">
@@ -118,7 +118,7 @@ export function LaunchSuccess() {
           rel="noopener noreferrer"
           className="btn-primary flex items-center justify-center gap-2 flex-1"
         >
-          <Image src="/logopng.png" alt="GitUp.fun" width={16} height={16} />
+          <Image src="/logo3.png" alt="GitUp.fun" width={16} height={16} />
           Trade on pump.fun
         </a>
 
