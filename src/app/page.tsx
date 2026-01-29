@@ -123,9 +123,20 @@ export default function HomePage() {
             Fund your development by tokenizing your repo, or support your favorite dev by tokenizing theirs.
           </p>
           
-          <p className="text-sm text-white/70 max-w-xl mx-auto mb-12">
+          <p className="text-sm text-white/70 max-w-xl mx-auto mb-6">
             Anyone can launch. Real owners verify & claim creator fees forever.
           </p>
+
+          {/* Contract Address */}
+          <a
+            href="https://pump.fun/coin/23TNLXH1s9fWXxtaw2vv5EFCfiKLLadMSUqUcbeZpump"
+            target="_blank"
+            rel="noopener noreferrer"
+            className="inline-flex items-center gap-2 px-4 py-2 rounded-lg border border-white/10 bg-white/5 hover:bg-white/10 transition-all mb-12 group"
+          >
+            <span className="text-xs text-white/50">CA:</span>
+            <span className="text-sm font-mono text-[#00FF41] group-hover:text-[#00FF41]/80">23TNLXH1s9fWXxtaw2vv5EFCfiKLLadMSUqUcbeZpump</span>
+          </a>
 
           {/* CTA Section */}
           <div className="flex flex-col items-center gap-6">
