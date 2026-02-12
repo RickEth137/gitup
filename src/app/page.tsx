@@ -1,6 +1,6 @@
 'use client';
 
-import { useMemo } from 'react';
+import { useMemo, useState, useEffect, useCallback } from 'react';
 import Link from 'next/link';
 import Image from 'next/image';
 import { useSession } from 'next-auth/react';
@@ -86,6 +86,82 @@ export default function HomePage() {
   const { data: session } = useSession();
   const { connected } = useWallet();
 
+  // Dynamic CA state
+  const [ca, setCa] = useState('');
+  const [showAdminPanel, setShowAdminPanel] = useState(false);
+  const [caInput, setCaInput] = useState('');
+  const [passwordInput, setPasswordInput] = useState('');
+  const [adminError, setAdminError] = useState('');
+  const [adminSuccess, setAdminSuccess] = useState('');
+
+  const fetchCa = useCallback(async () => {
+    try {
+      const res = await fetch('/api/ca');
+      const data = await res.json();
+      setCa(data.ca || '');
+    } catch {
+      setCa('');
+    }
+  }, []);
+
+  useEffect(() => {
+    fetchCa();
+  }, [fetchCa]);
+
+  const handleSaveCa = async () => {
+    setAdminError('');
+    setAdminSuccess('');
+    try {
+      const res = await fetch('/api/ca', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ ca: caInput, password: passwordInput }),
+      });
+      const data = await res.json();
+      if (!res.ok) {
+        setAdminError(data.error || 'Failed to save');
+        return;
+      }
+      setCa(data.ca);
+      setCaInput('');
+      setPasswordInput('');
+      setAdminSuccess('CA saved!');
+      setTimeout(() => {
+        setShowAdminPanel(false);
+        setAdminSuccess('');
+      }, 1500);
+    } catch {
+      setAdminError('Network error');
+    }
+  };
+
+  const handleRemoveCa = async () => {
+    setAdminError('');
+    setAdminSuccess('');
+    try {
+      const res = await fetch('/api/ca', {
+        method: 'DELETE',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ password: passwordInput }),
+      });
+      const data = await res.json();
+      if (!res.ok) {
+        setAdminError(data.error || 'Failed to remove');
+        return;
+      }
+      setCa('');
+      setCaInput('');
+      setPasswordInput('');
+      setAdminSuccess('CA removed!');
+      setTimeout(() => {
+        setShowAdminPanel(false);
+        setAdminSuccess('');
+      }, 1500);
+    } catch {
+      setAdminError('Network error');
+    }
+  };
+
   return (
     <div className="min-h-screen bg-[#0a0a0a]">
       {/* Star Particles Background */}
@@ -127,16 +203,78 @@ export default function HomePage() {
             Anyone can launch. Real owners verify & claim creator fees forever.
           </p>
 
-          {/* Contract Address */}
-          <a
-            href="https://pump.fun/coin/23TNLXH1s9fWXxtaw2vv5EFCfiKLLadMSUqUcbeZpump"
-            target="_blank"
-            rel="noopener noreferrer"
-            className="inline-flex items-center gap-2 px-4 py-2 rounded-lg border border-white/10 bg-white/5 hover:bg-white/10 transition-all mb-12 group"
-          >
-            <span className="text-xs text-white/50">CA:</span>
-            <span className="text-sm font-mono text-[#00FF41] group-hover:text-[#00FF41]/80">23TNLXH1s9fWXxtaw2vv5EFCfiKLLadMSUqUcbeZpump</span>
-          </a>
+          {/* Contract Address - Dynamic */}
+          <div className="relative mb-12">
+            {ca ? (
+              <a
+                href={`https://pump.fun/coin/${ca}`}
+                target="_blank"
+                rel="noopener noreferrer"
+                className="inline-flex items-center gap-2 px-4 py-2 rounded-lg border border-white/10 bg-white/5 hover:bg-white/10 transition-all group"
+              >
+                <span className="text-xs text-white/50">CA:</span>
+                <span className="text-sm font-mono text-[#00FF41] group-hover:text-[#00FF41]/80">{ca}</span>
+              </a>
+            ) : (
+              <div className="inline-flex items-center gap-2 px-4 py-2 rounded-lg border border-white/10 bg-white/5 h-10">
+                <span className="text-xs text-white/30">CA: —</span>
+              </div>
+            )}
+
+            {/* Small hidden admin trigger */}
+            <button
+              onClick={() => { setShowAdminPanel(!showAdminPanel); setAdminError(''); setAdminSuccess(''); }}
+              className="ml-2 text-white/10 hover:text-white/30 text-xs transition-colors select-none"
+              title="Admin"
+            >
+              ⚙
+            </button>
+
+            {/* Admin Panel */}
+            {showAdminPanel && (
+              <div className="absolute top-full left-1/2 -translate-x-1/2 mt-3 w-80 p-4 rounded-xl border border-white/10 bg-[#111] shadow-2xl z-50">
+                <h4 className="text-sm font-semibold text-white/80 mb-3">Update Contract Address</h4>
+                <input
+                  type="text"
+                  placeholder="Paste new CA..."
+                  value={caInput}
+                  onChange={(e) => setCaInput(e.target.value)}
+                  className="w-full px-3 py-2 rounded-lg bg-white/5 border border-white/10 text-sm text-white placeholder-white/30 focus:outline-none focus:border-[#00FF41]/50 mb-2"
+                />
+                <input
+                  type="password"
+                  placeholder="Password"
+                  value={passwordInput}
+                  onChange={(e) => setPasswordInput(e.target.value)}
+                  className="w-full px-3 py-2 rounded-lg bg-white/5 border border-white/10 text-sm text-white placeholder-white/30 focus:outline-none focus:border-[#00FF41]/50 mb-3"
+                />
+                {adminError && <p className="text-xs text-red-400 mb-2">{adminError}</p>}
+                {adminSuccess && <p className="text-xs text-[#00FF41] mb-2">{adminSuccess}</p>}
+                <div className="flex gap-2">
+                  <button
+                    onClick={handleSaveCa}
+                    className="flex-1 px-3 py-2 rounded-lg bg-[#00FF41] text-black text-sm font-semibold hover:bg-[#00FF41]/90 transition-colors"
+                  >
+                    Save
+                  </button>
+                  {ca && (
+                    <button
+                      onClick={handleRemoveCa}
+                      className="px-3 py-2 rounded-lg bg-red-500/20 text-red-400 text-sm font-medium border border-red-500/30 hover:bg-red-500/30 transition-colors"
+                    >
+                      Remove
+                    </button>
+                  )}
+                  <button
+                    onClick={() => { setShowAdminPanel(false); setAdminError(''); setAdminSuccess(''); }}
+                    className="px-3 py-2 rounded-lg bg-white/5 text-white/50 text-sm hover:bg-white/10 transition-colors"
+                  >
+                    Cancel
+                  </button>
+                </div>
+              </div>
+            )}
+          </div>
 
           {/* CTA Section */}
           <div className="flex flex-col items-center gap-6">

@@ -81,3 +81,9 @@ model TokenizedRepo {
   @@index([tokenMint])
   @@index([userId])
 }
+
+model SiteSetting {
+  key       String   @id
+  value     String
+  updatedAt DateTime @updatedAt
+}
